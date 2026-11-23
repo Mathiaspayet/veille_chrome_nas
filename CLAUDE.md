@@ -7,14 +7,15 @@
 - NAS : Synology **DS1522+** (AMD Ryzen R1600, x86-64, 2 cœurs, 8 Go),
   **DSM 7.4**. Mathias n'utilise **pas SSH** : toutes les commandes passent
   par le **Planificateur de tâches** (utilisateur root), qui appelle
-  `chrome-nas.sh` (actions : `demarrer`, `robot NOM.py`, `arreter`).
+  `chrome-nas.sh` (actions : `demarrer`, `robot NOM.py`, `arreter`,
+  `mettre-a-jour`).
   Le projet est dans `/volume1/docker/veille_chrome_nas`.
 - Sur le même NAS tournent d'autres projets de Mathias (gestion-locative,
   immo, menus-famille, suivi-prix-essence). Un seul **Watchtower** (installé
   avec gestion-locative) met à jour tous les conteneurs portant l'étiquette
-  `com.centurylinklabs.watchtower.scope=gestion-locative`. Le conteneur
-  chrome la porte ; le robot non (image fabriquée sur le NAS, conteneur
-  éphémère). Ne pas ajouter de second Watchtower ni de tâche de mise à
+  `com.centurylinklabs.watchtower.scope=gestion-locative`. Les conteneurs
+  chrome, pont-mcp et portier la portent ; le robot non (conteneur
+  éphémère, mis à jour avant chaque lancement). Ne pas ajouter de second Watchtower ni de tâche de mise à
   jour planifiée.
 - Mathias publie ses applications par le proxy inversé de DSM
   (`*.bignasmathias.synology.me`). Pour Chrome : destination **HTTPS**
