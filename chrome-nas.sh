@@ -24,8 +24,9 @@
 #               donnees/), puis enchaîne avec « demarrer ».
 #
 #  La tâche « Mettre à jour le projet » utilise une ligne plus longue, qui
-#  télécharge d'abord la dernière version de ce script lui-même (voir
-#  README) : elle marche même sur une installation vide ou ancienne.
+#  télécharge d'abord la dernière version de ce script lui-même dans le
+#  dossier du projet (voir README) : elle marche même sur une installation
+#  vide ou ancienne.
 #
 #  Tout ce qui se passe est noté dans donnees/journal.txt
 # =====================================================================

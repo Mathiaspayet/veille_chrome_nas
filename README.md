@@ -77,12 +77,13 @@ extraire. Tu la garderas : c'est ton bouton de mise à jour.
    normal) :
 
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/Mathiaspayet/veille_chrome_nas/main/chrome-nas.sh -o /tmp/chrome-nas.sh && DOSSIER_PROJET=/volume1/docker/veille_chrome_nas bash /tmp/chrome-nas.sh mettre-a-jour
+   cd /volume1/docker/veille_chrome_nas && curl -fsSL https://raw.githubusercontent.com/Mathiaspayet/veille_chrome_nas/main/chrome-nas.sh -o chrome-nas.sh.nouveau && mv -f chrome-nas.sh.nouveau chrome-nas.sh && bash chrome-nas.sh mettre-a-jour
    ```
 
-   La première partie télécharge la dernière version de la « télécommande »
-   `chrome-nas.sh` ; la seconde télécharge le reste du projet, sans jamais
-   toucher à tes réglages (`reglages.env`) ni à tes données (`donnees/`).
+   Elle se place dans le dossier du projet, y télécharge la dernière
+   version de la « télécommande » `chrome-nas.sh`, puis la lance pour
+   télécharger le reste du projet, sans jamais toucher à tes réglages
+   (`reglages.env`) ni à tes données (`donnees/`).
 6. **OK**. DSM avertit que la tâche tourne en `root` : confirme (DSM peut
    te demander ton mot de passe DSM).
 7. **Lance-la** : sélectionne la tâche, clique sur **Exécuter**, puis confirme.
@@ -306,7 +307,7 @@ l'as pas encore, crée-la comme à l'étape 3 du mode opératoire, avec la
 ligne :
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Mathiaspayet/veille_chrome_nas/main/chrome-nas.sh -o /tmp/chrome-nas.sh && DOSSIER_PROJET=/volume1/docker/veille_chrome_nas bash /tmp/chrome-nas.sh mettre-a-jour
+cd /volume1/docker/veille_chrome_nas && curl -fsSL https://raw.githubusercontent.com/Mathiaspayet/veille_chrome_nas/main/chrome-nas.sh -o chrome-nas.sh.nouveau && mv -f chrome-nas.sh.nouveau chrome-nas.sh && bash chrome-nas.sh mettre-a-jour
 ```
 
 La fin du journal doit afficher `✅ Pont MCP et portier démarrés…`.

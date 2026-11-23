@@ -53,9 +53,10 @@
   relance `demarrer` avec la nouvelle version du script. Les fichiers
   supprimés du dépôt restent sur le NAS. Test d'une branche :
   `BRANCHE_PROJET=nom-de-branche`. La tâche DSM « Mettre à jour le
-  projet » télécharge d'abord chrome-nas.sh (raw.githubusercontent.com)
-  dans /tmp puis le lance avec `DOSSIER_PROJET=...` : elle marche aussi
-  sur un dossier vide (installation neuve, sans ZIP).
+  projet » fait `cd` dans le dossier, y télécharge chrome-nas.sh
+  (raw.githubusercontent.com, en cache ~5 min : peut être l'ancienne
+  version, ce qui ne gêne pas) puis lance `mettre-a-jour` : elle marche
+  aussi sur un dossier vide (installation neuve, sans ZIP).
 - Mathias débute en code : toujours répondre **en français**, de façon
   **didactique** (expliquer les termes techniques simplement). Les commentaires
   du code et les messages affichés par les scripts sont en français.
