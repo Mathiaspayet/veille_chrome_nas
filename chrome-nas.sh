@@ -16,9 +16,12 @@
 #               mises à jour sont faites par le Watchtower déjà présent
 #               sur le NAS (portée gestion-locative).
 #    arreter  : arrête Chrome et le pont (pour libérer la mémoire du NAS).
-#    mettre-a-jour : télécharge la dernière version des fichiers du
-#               projet sur GitHub (sans toucher à reglages.env ni à
-#               donnees/), puis enchaîne avec « demarrer ».
+#    mettre-a-jour : regarde sur GitHub s'il existe une nouvelle version
+#               du projet. Si non : ne fait rien (et n'écrit rien). Si
+#               oui : télécharge les fichiers (sans toucher à reglages.env
+#               ni à donnees/), puis enchaîne avec « demarrer ». La tâche
+#               qui l'appelle tourne toutes les heures : tout ce qui est
+#               fusionné sur GitHub arrive donc seul sur le NAS.
 #
 #  La tâche « Mettre à jour le projet » utilise une ligne plus longue, qui
 #  télécharge d'abord la dernière version de ce script lui-même dans le
@@ -56,6 +59,8 @@ export PUID PGID
 mkdir -p "$DOSSIER/donnees/chrome" "$DOSSIER/donnees/portier"
 chown "$PUID:$PGID" "$DOSSIER/donnees" "$DOSSIER/donnees/chrome" "$DOSSIER/donnees/portier" 2>/dev/null
 JOURNAL="$DOSSIER/donnees/journal.txt"
+# Numéro de la version du projet installée (écrit après une mise à jour réussie).
+VERSION_INSTALLEE="$DOSSIER/donnees/version.txt"
 
 # Le veilleur de Chrome est un « service personnalisé » de l'image
 # linuxserver : par sécurité, elle exige qu'il appartienne à root et que
@@ -187,6 +192,14 @@ demarrer() {
   port="$(sed -n 's/^PORT_CHROME=//p' "$REGLAGES_PROPRES" | tail -n 1)"
   journal "✅ Chrome tourne. Ouvre https://IP-DU-NAS:${port:-3001} depuis ton PC."
   journal "✅ Pont MCP et portier démarrés (voir le guide pour les relier à Claude)."
+
+  # Après une mise à jour réussie, on note la version installée : la
+  # vérification de l'heure suivante saura qu'il n'y a plus rien à faire.
+  if [ -n "${VERSION_A_NOTER:-}" ]; then
+    echo "$VERSION_A_NOTER" > "$VERSION_INSTALLEE"
+    chown "$PUID:$PGID" "$VERSION_INSTALLEE" 2>/dev/null
+    journal "Version du projet installée : ${VERSION_A_NOTER:0:7}."
+  fi
 }
 
 arreter() {
@@ -211,6 +224,21 @@ mettre_a_jour() {
     sha=""
     adresse="https://github.com/$depot/archive/refs/heads/$branche.tar.gz"
   fi
+
+  # Déjà la dernière version ? Alors rien à faire, et rien à écrire dans
+  # le journal (cette vérification a lieu toutes les heures).
+  local installee=""
+  [ -f "$VERSION_INSTALLEE" ] && installee="$(cat "$VERSION_INSTALLEE" 2>/dev/null)"
+  if [ -n "$sha" ] && [ "$sha" = "$installee" ]; then
+    exit 0
+  fi
+  # GitHub ne répond pas, mais une version tourne déjà : on réessaiera
+  # à la prochaine vérification.
+  if [ -z "$sha" ] && [ -n "$installee" ]; then
+    exit 0
+  fi
+
+  journal "===== Tâche : mettre-a-jour ====="
   tmp="$(mktemp -d)"
   journal "Téléchargement de la dernière version du projet depuis GitHub (version ${sha:0:7})…"
   if ! curl -fsSL --max-time 300 -o "$tmp/projet.tar.gz" "$adresse"; then
@@ -250,14 +278,15 @@ mettre_a_jour() {
   # On relance la NOUVELLE version du script pour la suite.
   rendre_les_fichiers
   trap - EXIT
-  exec bash "$DOSSIER/chrome-nas.sh" demarrer
+  VERSION_A_NOTER="$sha" exec bash "$DOSSIER/chrome-nas.sh" demarrer
 }
 
 # --- Aiguillage ---------------------------------------------------------
 
 ACTION="${1:-}"
 [ $# -gt 0 ] && shift
-journal "===== Tâche : ${ACTION:-(aucune)} $* ====="
+# (mettre-a-jour écrit son propre en-tête, seulement s'il y a du nouveau)
+[ "$ACTION" != "mettre-a-jour" ] && journal "===== Tâche : ${ACTION:-(aucune)} $* ====="
 case "$ACTION" in
   demarrer) demarrer ;;
   arreter)  arreter ;;
