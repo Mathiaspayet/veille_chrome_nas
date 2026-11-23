@@ -52,9 +52,10 @@ sur le NAS : **Container Manager**, le dossier partagé **`docker`** et
 
 ### Étape 2 : télécharger le projet
 
-Sur la page GitHub du projet, **choisis la branche** qui contient la version à
-installer (menu déroulant en haut à gauche), puis clique sur **Code → Download
-ZIP**. Garde le fichier `.zip` tel quel, sans le décompresser.
+Sur la page GitHub du projet
+(<https://github.com/Mathiaspayet/veille_chrome_nas>), clique sur
+**Code → Download ZIP**. La branche `main`, proposée par défaut, contient la
+version validée. Garde le fichier `.zip` tel quel, sans le décompresser.
 
 ### Étape 3 : déposer le projet sur le NAS
 
