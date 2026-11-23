@@ -9,6 +9,15 @@
   par le **Planificateur de tâches** (utilisateur root), qui appelle
   `chrome-nas.sh` (actions : `demarrer`, `robot NOM.py`, `arreter`).
   Le projet est dans `/volume1/docker/veille_chrome_nas`.
+- Sur le même NAS tournent d'autres projets de Mathias (gestion-locative,
+  immo, menus-famille, suivi-prix-essence). Un seul **Watchtower** (installé
+  avec gestion-locative) met à jour tous les conteneurs portant l'étiquette
+  `com.centurylinklabs.watchtower.scope=gestion-locative`. Le conteneur
+  chrome la porte ; le robot non (image fabriquée sur le NAS, conteneur
+  éphémère). Ne pas ajouter de second Watchtower ni de tâche de mise à
+  jour planifiée.
+- Ports déjà pris sur le NAS par ces projets : 8000, 8010, 8020, 8080,
+  8081, 8095, 8100. Ce projet utilise 3001.
 - Mathias débute en code : toujours répondre **en français**, de façon
   **didactique** (expliquer les termes techniques simplement). Les commentaires
   du code et les messages affichés par les scripts sont en français.

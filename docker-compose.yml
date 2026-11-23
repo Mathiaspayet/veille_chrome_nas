@@ -68,7 +68,17 @@ services:
     # ou si Chrome plante au démarrage :
     # security_opt:
     #   - seccomp:unconfined
+    labels:
+      # Portée du Watchtower déjà en place sur le NAS (installé avec
+      # gestion-locative, comme pour immo, menus-famille et
+      # suivi-prix-essence). Ne pas la changer : c'est ce qui fait que
+      # Chrome est mis à jour automatiquement, sans second Watchtower.
+      - "com.centurylinklabs.watchtower.scope=gestion-locative"
 
+  # Le robot ne porte PAS l'étiquette Watchtower : son image est fabriquée
+  # sur le NAS (elle n'existe sur aucun registre à télécharger) et il ne
+  # tourne que le temps d'un script. Il se met à jour avec la tâche
+  # « Démarrer ».
   robot:
     build: ./robot
     container_name: robot-nas

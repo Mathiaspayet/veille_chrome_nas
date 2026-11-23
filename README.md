@@ -37,16 +37,18 @@ Préparé pour un **DS1522+** (AMD Ryzen, 8 Go de RAM, DSM 7.4) : tout est
 compatible. Compte environ **30 minutes**. Les noms des menus peuvent varier
 légèrement selon la version de DSM.
 
-### Étape 1 : installer 2 paquets
+### Étape 1 : vérifier les prérequis
 
-1. Ouvre le **Centre de paquets**.
-2. Cherche **Container Manager**, puis clique sur **Installer**. C'est lui qui fait
-   tourner les conteneurs.
-3. Cherche **Éditeur de texte**, puis clique sur **Installer**. Il permet d'ouvrir et
-   de modifier les fichiers texte directement sur le NAS.
-4. Ouvre **File Station** et vérifie qu'il existe un dossier partagé
-   **`docker`**. S'il n'y est pas : **Panneau de configuration → Dossier
-   partagé → Créer**, puis nom : `docker`, et valide avec les options proposées par défaut.
+Tes autres projets (gestion-locative, immo, menus-famille…) tournent déjà
+sur le NAS : **Container Manager**, le dossier partagé **`docker`** et
+**Watchtower** sont donc en place. Il reste deux vérifications :
+
+1. **Centre de paquets** : vérifie que **Éditeur de texte** est installé.
+   Sinon, cherche-le et clique sur **Installer**. Il permet d'ouvrir et de
+   modifier les fichiers texte directement sur le NAS.
+2. **Container Manager → Conteneur** : la ligne **`watchtower`** doit être
+   **en cours d'exécution**. C'est lui qui mettra Chrome à jour tout seul,
+   comme tes autres applications.
 
 ### Étape 2 : télécharger le projet
 
@@ -91,11 +93,10 @@ ZIP**. Garde le fichier `.zip` tel quel, sans le décompresser.
    - Tâche : **`Chrome NAS – Démarrer`**
    - Utilisateur : **`root`** (Docker exige les droits d'administrateur)
    - **Activé** : coché
-4. Onglet **Programmer** : cette tâche installe aussi les **mises à jour
-   de sécurité** de Chrome. On la fait donc tourner une fois par semaine,
-   la nuit :
-   - Exécuter aux jours suivants : **Lundi**
-   - Heure de première exécution : **04:00**, une seule fois dans la journée
+4. Onglet **Programmer** : **Exécuter à la date suivante**, avec la date du jour,
+   et **Ne pas répéter**. Cette tâche se lance à la main : les mises à
+   jour de Chrome, c'est ton Watchtower qui s'en charge (voir « Au
+   quotidien »).
 5. Onglet **Paramètres de tâche**, dans la case **Script défini par
    l'utilisateur**, colle exactement cette ligne :
 
@@ -180,7 +181,8 @@ s'ouvrir sur `example.com`, puis se refermer. Ensuite :
 | Utiliser Chrome | `https://IP-DU-NAS:3001` depuis un PC de la maison |
 | Redémarrer Chrome | **Container Manager → Conteneur → `chrome-nas` → Action → Redémarrer** |
 | Rouvrir Chrome si j'ai fermé sa fenêtre | Clic droit sur le fond du bureau → **Chromium**, ou redémarre le conteneur |
-| Mettre à jour | Rien à faire : la tâche « Démarrer » le fait chaque lundi à 4 h |
+| Mettre à jour Chrome | Rien à faire : ton Watchtower (portée `gestion-locative`) vérifie toutes les 5 minutes et installe les nouvelles versions |
+| Mettre à jour le robot | Rarement utile : **Exécuter** la tâche « Démarrer » |
 | Changer le mot de passe d'accès | Modifie `reglages.env`, puis **Exécuter** la tâche « Démarrer » |
 | Arrêter Chrome (libérer la mémoire) | Crée une tâche avec `bash /volume1/docker/veille_chrome_nas/chrome-nas.sh arreter` |
 | Savoir ce qui s'est passé | Ouvre `donnees/journal.txt` avec l'Éditeur de texte |
@@ -189,6 +191,10 @@ s'ouvrir sur `example.com`, puis se refermer. Ensuite :
   c'est normal, tu peux cliquer sur **Restaurer** ou fermer la bulle. Tes
   connexions sont conservées.
 - Après un redémarrage du NAS, Chrome se relance tout seul.
+- Quand Watchtower installe une nouvelle version de Chrome (souvent une
+  fois par semaine), Chrome redémarre en quelques secondes. Tes connexions
+  sont conservées. Si un script du robot tournait à ce moment-là, il
+  s'arrête en erreur : relance-le simplement.
 
 ---
 
@@ -222,7 +228,8 @@ Commence toujours par lire la fin de **`donnees/journal.txt`**.
 | Pas de fichier `journal.txt` | La tâche n'a pas trouvé le script : vérifie le chemin collé dans la tâche (étape 3, point 6) et que l'utilisateur est bien `root`. |
 | `❌ Le fichier reglages.env est introuvable` | Renomme `reglages-exemple.env` en `reglages.env` (étape 4). |
 | `❌ Choisis un vrai mot de passe…` / `❌ … ne doit contenir que…` | Corrige `CHROME_MOT_DE_PASSE` dans `reglages.env`, puis relance la tâche. |
-| `❌ Docker est introuvable` | Installe **Container Manager** (étape 1). |
+| `❌ Docker est introuvable` | Vérifie que **Container Manager** est installé et démarré (Centre de paquets). |
+| Chrome n'est jamais mis à jour | **Container Manager → Conteneur** : `watchtower` doit être en cours d'exécution. |
 | `⚠️ Téléchargement impossible` | Le NAS n'avait pas Internet à ce moment-là. Ce n'est pas grave si Chrome tournait déjà ; sinon, relance la tâche plus tard. |
 | La page `https://IP-DU-NAS:3001` ne répond pas | Attends 1 minute après le démarrage. Vérifie l'IP et le `https://`. Si le pare-feu DSM est activé (**Panneau de configuration → Sécurité → Pare-feu**), autorise le port **3001** pour ton réseau local. |
 | Écran noir, ou Chrome qui plante en boucle | Ouvre `docker-compose.yml` avec l'Éditeur de texte et enlève les `#` devant les 2 lignes `security_opt:` et `- seccomp:unconfined`, puis relance la tâche « Démarrer ». |

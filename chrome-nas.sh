@@ -10,8 +10,10 @@
 #    bash /volume1/docker/veille_chrome_nas/chrome-nas.sh arreter
 #
 #  Les actions :
-#    demarrer : télécharge les mises à jour, (re)démarre Chrome et
-#               prépare le robot. Sans danger : on peut la relancer.
+#    demarrer : installe (ou rafraîchit) Chrome, le démarre et prépare
+#               le robot. Sans danger : on peut la relancer.
+#               Ensuite, les mises à jour de Chrome sont faites par le
+#               Watchtower déjà présent sur le NAS (portée gestion-locative).
 #    robot NOM : lance le script NOM du dossier robot/scripts
 #               (Chrome doit être démarré).
 #    arreter  : arrête Chrome (pour libérer la mémoire du NAS).
