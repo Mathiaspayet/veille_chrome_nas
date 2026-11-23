@@ -202,11 +202,23 @@ arreter() {
 }
 
 mettre_a_jour() {
-  # ADRESSE_PROJET permet de tester une autre branche (sinon : main).
-  local adresse="${ADRESSE_PROJET:-https://github.com/Mathiaspayet/veille_chrome_nas/archive/refs/heads/main.tar.gz}"
-  local tmp source
+  local depot="Mathiaspayet/veille_chrome_nas"
+  # BRANCHE_PROJET permet de tester une autre branche (sinon : main).
+  local branche="${BRANCHE_PROJET:-main}"
+  local adresse sha tmp source
+  # On demande d'abord à GitHub le numéro exact de la dernière version :
+  # l'archive « par nom de branche » peut avoir quelques minutes de retard
+  # (cache de GitHub), celle d'un numéro précis jamais.
+  sha="$(curl -fsSL --max-time 30 -H 'Accept: application/vnd.github.sha' \
+    "https://api.github.com/repos/$depot/commits/$branche" 2>/dev/null)"
+  if [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+    adresse="https://github.com/$depot/archive/$sha.tar.gz"
+  else
+    sha=""
+    adresse="https://github.com/$depot/archive/refs/heads/$branche.tar.gz"
+  fi
   tmp="$(mktemp -d)"
-  journal "Téléchargement de la dernière version du projet depuis GitHub…"
+  journal "Téléchargement de la dernière version du projet depuis GitHub (version ${sha:0:7})…"
   if ! curl -fsSL --max-time 300 -o "$tmp/projet.tar.gz" "$adresse"; then
     journal "❌ Téléchargement impossible (pas d'Internet, ou GitHub indisponible). Rien n'a été modifié."
     rm -rf "$tmp"; exit 1
@@ -235,7 +247,7 @@ mettre_a_jour() {
     nb=$((nb + 1))
   done < <(cd "$source" && find . -type f ! -path './donnees/*' ! -name 'reglages.env' -print0)
   rm -rf "$tmp"
-  journal "✅ Projet mis à jour ($nb fichiers). Démarrage de la nouvelle version…"
+  journal "✅ Projet mis à jour ($nb fichiers, version ${sha:0:7}). Démarrage de la nouvelle version…"
 
   # On relance la NOUVELLE version du script pour la suite.
   rendre_les_fichiers

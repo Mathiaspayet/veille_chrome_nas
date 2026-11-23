@@ -38,9 +38,13 @@
   containrrr/watchtower 1.7.1 : quand Chrome est mis à jour, Watchtower les
   arrête puis les recrée rebranchés sur le nouveau Chrome, et les jetons
   (SQLite dans donnees/portier) restent valables.
-- `chrome-nas.sh mettre-a-jour` télécharge l'archive de `main` sur GitHub et
-  remplace les fichiers (jamais reglages.env ni donnees/), puis relance
-  `demarrer` avec la nouvelle version du script.
+- `chrome-nas.sh mettre-a-jour` demande à l'API GitHub le numéro (SHA) du
+  dernier commit de `main`, télécharge l'archive de CE numéro (l'archive
+  « par nom de branche » est mise en cache quelques minutes par GitHub :
+  constaté), remplace les fichiers (jamais reglages.env ni donnees/), puis
+  relance `demarrer` avec la nouvelle version du script. Les fichiers
+  supprimés du dépôt restent sur le NAS. Test d'une branche :
+  `BRANCHE_PROJET=nom-de-branche`.
 - Mathias débute en code : toujours répondre **en français**, de façon
   **didactique** (expliquer les termes techniques simplement). Les commentaires
   du code et les messages affichés par les scripts sont en français.
