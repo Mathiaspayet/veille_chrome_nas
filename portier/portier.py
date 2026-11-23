@@ -570,6 +570,31 @@ def creer_app(utilisateur, mot_de_passe, fichier_base, url_pont, transport=None,
     return Starlette(routes=routes)
 
 
+# --------------------------------------------------------------------------- auto-réparation
+
+def surveiller_le_reseau(port_chrome=9222, delai=120, intervalle=20):
+    """Le portier partage le réseau du conteneur chrome. Si ce conteneur est
+    redémarré seul (bouton « Redémarrer » de Container Manager…), le portier
+    reste branché sur l'ANCIEN réseau : il tourne, mais plus personne ne
+    peut le joindre. On le détecte en ne voyant plus Chrome (port 9222)
+    pendant « delai » secondes : le portier s'arrête alors, et Docker le
+    relance aussitôt, rebranché sur le réseau actuel de Chrome.
+    (Le délai laisse au veilleur le temps de relancer un Chrome fermé.)"""
+    import socket
+    perdu_depuis = None
+    while True:
+        time.sleep(intervalle)
+        try:
+            with socket.create_connection(("127.0.0.1", port_chrome), timeout=3):
+                perdu_depuis = None
+        except OSError:
+            perdu_depuis = perdu_depuis or time.time()
+            if time.time() - perdu_depuis >= delai:
+                print("⚠️ Chrome injoignable depuis 2 minutes : le portier redémarre pour se rebrancher.",
+                      flush=True)
+                os._exit(1)
+
+
 # --------------------------------------------------------------------------- démarrage
 
 def principal():
@@ -588,6 +613,7 @@ def principal():
         fichier_base=os.path.join(dossier, "portier.sqlite3"),
         url_pont=os.environ.get("PONT_MCP_URL", "http://127.0.0.1:8931/mcp"),
     )
+    threading.Thread(target=surveiller_le_reseau, daemon=True).start()
     print("✅ Portier du pont MCP en service.", flush=True)
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORTIER_PORT", "8930")),
                 proxy_headers=False, server_header=False)

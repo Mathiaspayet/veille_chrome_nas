@@ -61,7 +61,9 @@ sur le NAS : **Container Manager**, le dossier partagé **`docker`** et
 ### Étape 3 : créer la tâche « Mettre à jour le projet »
 
 Cette tâche télécharge les fichiers du projet depuis GitHub, sans ZIP à
-extraire. Tu la garderas : c'est ton bouton de mise à jour.
+extraire. Ensuite, elle vérifie **toutes les heures** s'il existe une
+nouvelle version, et l'installe toute seule. S'il n'y a rien de nouveau,
+elle ne fait rien : pas de redémarrage, et rien dans le journal.
 
 1. **Panneau de configuration → Planificateur de tâches**.
 2. **Créer → Tâche planifiée → Script défini par l'utilisateur**.
@@ -69,8 +71,11 @@ extraire. Tu la garderas : c'est ton bouton de mise à jour.
    - Tâche : **`Chrome NAS – Mettre à jour le projet`**
    - Utilisateur : **`root`** (Docker exige les droits d'administrateur)
    - **Activé** : coché
-4. Onglet **Programmer** : **Exécuter à la date suivante**, avec la date du
-   jour, et **Ne pas répéter**. Cette tâche se lance à la main.
+4. Onglet **Programmer** :
+   - Exécuter aux jours suivants : **Quotidien**
+   - Heure de première exécution : **00:12**
+   - Fréquence : **toutes les heures**
+   - Heure de la dernière exécution : **23:12**
 5. Onglet **Paramètres de tâche**, dans la case **Script défini par
    l'utilisateur**, colle exactement cette ligne (elle est longue, c'est
    normal) :
@@ -179,10 +184,10 @@ plus bas.
 | Je veux… | Comment |
 |---|---|
 | Utiliser Chrome | `https://IP-DU-NAS:3001` depuis un PC de la maison |
-| Redémarrer Chrome | **Container Manager → Conteneur → `chrome-nas` → Action → Redémarrer** |
-| Rouvrir Chrome si j'ai fermé sa fenêtre | Clic droit sur le fond du bureau → **Chromium**, ou redémarre le conteneur |
+| Redémarrer Chrome | **Container Manager → Conteneur → `chrome-nas` → Action → Redémarrer**. Le pont et le portier se rebranchent tout seuls dans les 2 à 3 minutes. |
+| Rouvrir Chrome si j'ai fermé sa fenêtre | Rien à faire : le **veilleur** le relance tout seul en moins d'une minute (sa croix ✕ en haut à droite ferme Chrome en entier) |
 | Mettre à jour Chrome, le pont et le portier | Rien à faire : ton Watchtower (portée `gestion-locative`) vérifie toutes les 5 minutes et installe les nouvelles versions. Celles du pont et du portier sont fabriquées par GitHub à chaque modification du projet. |
-| Mettre à jour les fichiers du projet (réglages de Chrome, télécommande…) | Rarement utile : **Exécuter** la tâche « Mettre à jour le projet » |
+| Mettre à jour les fichiers du projet (réglages de Chrome, télécommande…) | Rien à faire : la tâche « Mettre à jour le projet » vérifie toutes les heures. Pour ne pas attendre : **Exécuter**. |
 | Changer le mot de passe d'accès | Modifie `reglages.env`, puis **Exécuter** la tâche « Démarrer » |
 | Arrêter Chrome et le pont (libérer la mémoire) | Crée une tâche avec `bash /volume1/docker/veille_chrome_nas/chrome-nas.sh arreter` |
 | Savoir ce qui s'est passé | Ouvre `donnees/journal.txt` avec l'Éditeur de texte |
@@ -367,6 +372,9 @@ travailler en direct.
   grâce aux cookies, pas grâce à un mot de passe mémorisé.
 - **Le paiement, c'est toi.** Claude peut préparer, mais c'est toi qui valides
   les commandes.
+- **Protège ton compte GitHub** avec la double authentification : tout ce qui
+  arrive sur la branche `main` du projet s'installe tout seul sur le NAS,
+  dans l'heure.
 - Certains sites marchands détectent les robots ou interdisent
   l'automatisation dans leurs conditions d'utilisation. On testera au cas par
   cas.
@@ -390,6 +398,7 @@ Commence toujours par lire la fin de **`donnees/journal.txt`**.
 | `❌ Action inconnue « robot »` | Le robot a été retiré du projet (on passe par le pont MCP) : supprime la tâche « Chrome NAS – Test robot » du Planificateur. |
 | Claude : « Couldn't reach the MCP server » | L'adresse doit commencer par `https://` et finir par `/mcp`. Ouvre-la sans `/mcp` dans un navigateur : tu dois voir « Portier du pont MCP ». Sinon, vérifie la règle de proxy inversé (destination **HTTP**, `127.0.0.1`, `8930`). |
 | Page d'autorisation : « Trop d'essais ratés » | Le portier est verrouillé 15 minutes après 5 mots de passe faux. Attends, puis réessaie. |
+| Claude : `ECONNREFUSED 127.0.0.1:9222` | Chrome était fermé : le veilleur le relance en moins d'une minute, redemande à Claude. Si ça dure, regarde **Container Manager → `chrome-nas` → Journal** (lignes `veilleur-chrome`) ou redémarre `chrome-nas`. |
 | Claude : « pont_injoignable » | **Container Manager → Conteneur** : `pont-mcp` et `chrome-nas` doivent être en cours d'exécution. Sinon, **Exécuter** « Démarrer ». |
 | `❌ Impossible de télécharger « pont-mcp »` (ou portier) | Internet était peut-être coupé : relance « Démarrer » plus tard. Si ça persiste, vérifie que les images sont publiques (pont MCP, point 1). |
 | Le port 3001 est déjà utilisé | Change `PORT_CHROME` dans `reglages.env` (par exemple 3005), relance « Démarrer » et utilise ce numéro dans l'adresse. |
@@ -406,9 +415,11 @@ veille_chrome_nas/
 ├── docker-compose.yml        ← décrit les 3 conteneurs (chrome, pont-mcp, portier)
 ├── reglages-chrome/
 │   ├── options-chrome.sh     ← ouvre la « prise » du pont MCP + Chrome en français
-│   └── politiques.json       ← rouvre la session au démarrage, pas de mot de passe ni de CB enregistrés
+│   ├── politiques.json       ← rouvre la session au démarrage, pas de mot de passe ni de CB enregistrés
+│   └── veilleur-chrome.sh    ← relance Chrome tout seul s'il a été fermé
 ├── pont-mcp/
 │   ├── Dockerfile            ← recette du pont (Playwright MCP, version fixée)
+│   ├── demarrer-pont.sh      ← démarrage du pont, avec auto-réparation
 │   └── package.json …        ← version exacte de Playwright MCP
 ├── portier/
 │   ├── Dockerfile            ← recette du portier

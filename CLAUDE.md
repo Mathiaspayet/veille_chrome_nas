@@ -16,7 +16,15 @@
   avec gestion-locative) met à jour tous les conteneurs portant l'étiquette
   `com.centurylinklabs.watchtower.scope=gestion-locative`. Les 3
   conteneurs (chrome, pont-mcp, portier) la portent. Ne pas ajouter de
-  second Watchtower ni de tâche de mise à jour planifiée.
+  second Watchtower.
+- **Déploiement entièrement automatique** : la tâche DSM « Mettre à jour
+  le projet » tourne toutes les heures. `mettre-a-jour` compare le SHA du
+  dernier commit de `main` à `donnees/version.txt` : identique → sortie
+  silencieuse (rien au journal) ; différent → fichiers + `demarrer`, qui
+  écrit version.txt seulement s'il réussit (VERSION_A_NOTER). Tout ce qui
+  est fusionné dans main arrive donc sur le NAS en ≤ 1 h (images : ≤ 10
+  min via Watchtower). Toute évolution de chrome-nas.sh doit préserver ce
+  mécanisme. Forcer une réinstallation : supprimer donnees/version.txt.
 - Mathias publie ses applications par le proxy inversé de DSM
   (`*.bignasmathias.synology.me`). Pour Chrome : destination **HTTPS**
   localhost:3001, en-têtes **WebSocket**, et profil de contrôle d'accès
@@ -89,6 +97,22 @@
 - L'Éditeur de texte de DSM affiche mal les emojis récents (au-delà de
   U+FFFF, ex. 📸) dans `journal.txt`. Dans les messages des scripts,
   n'utiliser que ✅ ❌ ⚠️ (qui s'affichent bien) ou du texte simple.
+- **Veilleur de Chrome** (reglages-chrome/veilleur-chrome.sh, monté dans
+  /custom-services.d de l'image linuxserver) : relance Chrome s'il est
+  fermé. L'image exige que ce fichier appartienne à root (chrome-nas.sh
+  fait chown 0:0). Piège : relancer avec l'environnement de labwc met
+  Chrome sur `wayland-1` (l'écran de selkies/pixelflux, SOUS labwc), en
+  plein écran sans barre d'adresse. Le bon écran est celui que labwc donne
+  à ses fenêtres (`wayland-0`, DISPLAY=:0) : le veilleur mémorise
+  l'environnement du Chrome en marche et le réutilise (secours : autre
+  prise wayland-N que celle de labwc).
+- **Réseau partagé** : si chrome-nas est redémarré SEUL (pas recréé), pont
+  et portier restent dans l'ancien espace réseau (ils tournent mais sont
+  injoignables). Auto-réparation : s'ils ne voient plus 127.0.0.1:9222
+  pendant 2 min, ils s'arrêtent (portier.surveiller_le_reseau,
+  pont-mcp/demarrer-pont.sh) et Docker les relance rebranchés (vérifié :
+  127 s). Les 2 min laissent au veilleur le temps de relancer un Chrome
+  fermé (15 s) sans redémarrage inutile.
 - Test de bout en bout : créer `reglages.env`, puis `bash chrome-nas.sh
   demarrer`, puis le parcours OAuth + appels MCP à travers le portier
   (127.0.0.1:8930) : enregistrement, autorisation, jeton, initialize,
