@@ -39,7 +39,7 @@ with sync_playwright() as p:
         page.goto(ADRESSE_TEST, wait_until="domcontentloaded", timeout=30_000)
         page.wait_for_timeout(2_000)  # laisse 2 secondes à la page pour s'afficher
         print(f"Titre de la page : {page.title()}")
-        print(f"📸 Capture enregistrée : {capture(page, 'test')}")
+        print(f"Capture enregistrée : {capture(page, 'test')}")
     except Exception as erreur:
         print(f"❌ La page n'a pas pu être ouverte : {erreur}")
         sys.exit(1)

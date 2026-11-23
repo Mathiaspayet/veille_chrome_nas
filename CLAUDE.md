@@ -54,6 +54,9 @@
   (« Bind mount failed: ... does not exist ») : `chrome-nas.sh` crée
   `donnees/chrome` et `donnees/captures` avant de lancer Docker. Tout
   nouveau dossier monté doit être créé de la même façon.
+- L'Éditeur de texte de DSM affiche mal les emojis récents (au-delà de
+  U+FFFF, ex. 📸) dans `journal.txt`. Dans les messages des scripts,
+  n'utiliser que ✅ ❌ ⚠️ (qui s'affichent bien) ou du texte simple.
 - Le robot a besoin de `libatomic1` (python:3.13-slim), sinon le pilote
   Playwright ne démarre pas.
 - Test de bout en bout : créer `reglages.env`, puis
