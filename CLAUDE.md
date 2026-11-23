@@ -16,6 +16,11 @@
   chrome la porte ; le robot non (image fabriquée sur le NAS, conteneur
   éphémère). Ne pas ajouter de second Watchtower ni de tâche de mise à
   jour planifiée.
+- Mathias publie ses applications par le proxy inversé de DSM
+  (`*.bignasmathias.synology.me`). Pour Chrome : destination **HTTPS**
+  localhost:3001, en-têtes **WebSocket**, et profil de contrôle d'accès
+  **réseau local uniquement** (un navigateur connecté à ses comptes ne doit
+  pas être joignable depuis Internet ; accès extérieur = VPN).
 - Ports déjà pris sur le NAS par ces projets : 8000, 8010, 8020, 8080,
   8081, 8095, 8100. Ce projet utilise 3001.
 - Mathias débute en code : toujours répondre **en français**, de façon

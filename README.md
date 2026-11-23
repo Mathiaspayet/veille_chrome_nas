@@ -198,12 +198,55 @@ s'ouvrir sur `example.com`, puis se refermer. Ensuite :
 
 ---
 
+## Option : une adresse du type `https://chrome.….synology.me`
+
+Comme pour tes autres applications, tu peux ouvrir Chrome par un nom de
+domaine grâce au **proxy inversé** de DSM. Un proxy inversé est un
+« aiguilleur » : il reçoit la visite sur le nom de domaine et la transmet
+au bon conteneur. Trois réglages sont **indispensables** pour ce
+conteneur-là :
+
+1. **Destination en HTTPS.** Dans **Panneau de configuration → Portail de
+   connexion → Avancé → Proxy inversé**, ouvre ta règle (**Modifier**) et
+   règle la partie **Destination** ainsi :
+   - Protocole : **HTTPS**, et non HTTP (sinon : « 400 Bad Request – The
+     plain HTTP request was sent to HTTPS port ») ;
+   - Nom d'hôte : **`localhost`** ;
+   - Port : **`3001`**.
+2. **WebSocket.** Dans l'onglet **En-tête personnalisé**, clique sur
+   **Créer → WebSocket**. Sans ces en-têtes, la page s'ouvre mais l'image
+   de Chrome ne s'affiche pas : c'est un flux vidéo en continu, qui passe
+   par une connexion de type « WebSocket ».
+3. **Réseau local uniquement** (sécurité, voir plus bas) :
+   - **Portail de connexion → Avancé → Profil de contrôle d'accès →
+     Créer**. Nom : `Réseau local uniquement`. Ajoute une règle
+     **Autoriser** pour ton réseau, par exemple l'adresse `192.168.1.0`
+     avec le masque `255.255.255.0` si l'adresse IP de ton NAS commence par
+     `192.168.1.` (adapte si elle commence autrement). Ajoute ensuite une
+     règle **Refuser** pour **Tout**.
+   - Dans ta règle de proxy inversé, onglet **Général**, choisis ce profil
+     dans **Profil de contrôle d'accès**.
+
+**Pourquoi le point 3 ?** Tes autres applications ont leur propre écran de
+connexion. Derrière celle-ci, il y a un **navigateur déjà connecté à tes
+comptes** (courses, billetterie…), protégé seulement par l'identifiant et
+le mot de passe de `reglages.env`. Sans ce profil, n'importe qui sur
+Internet qui trouve l'adresse peut tenter sa chance. Et le blocage
+automatique de DSM ne protège pas ce mot de passe-là : il ne surveille que
+les connexions à DSM lui-même. Avec le profil, le nom de domaine fonctionne
+chez toi, mais reste fermé depuis l'extérieur. Pour un accès hors de chez
+toi, on passera par un VPN, c'est-à-dire un tunnel privé entre ton
+téléphone et ta maison.
+
+---
+
 ## Sécurité : les règles à respecter
 
-- **N'ouvre jamais le port 3001 sur Internet** (pas de « redirection de port »
-  sur ta box). Ce Chrome est connecté à tes comptes : il doit rester sur ton
-  réseau local. Pour y accéder de l'extérieur plus tard, on passera par un
-  VPN.
+- **N'ouvre jamais ce Chrome sur Internet** : pas de « redirection de port »
+  du 3001 sur ta box, et pas de proxy inversé sans le profil « Réseau local
+  uniquement » (voir l'option ci-dessus). Ce Chrome est connecté à tes
+  comptes : il doit rester sur ton réseau local. Pour y accéder de
+  l'extérieur plus tard, on passera par un VPN.
 - Le dossier **`donnees/chrome`** contient tes connexions (cookies). Quiconque
   le récupère peut se faire passer pour toi sur ces sites : ne le partage
   pas. Il n'est jamais envoyé sur GitHub (voir `.gitignore`), tout comme
