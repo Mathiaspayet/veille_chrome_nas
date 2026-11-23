@@ -57,6 +57,14 @@ mkdir -p "$DOSSIER/donnees/chrome" "$DOSSIER/donnees/portier"
 chown "$PUID:$PGID" "$DOSSIER/donnees" "$DOSSIER/donnees/chrome" "$DOSSIER/donnees/portier" 2>/dev/null
 JOURNAL="$DOSSIER/donnees/journal.txt"
 
+# Le veilleur de Chrome est un « service personnalisé » de l'image
+# linuxserver : par sécurité, elle exige qu'il appartienne à root et que
+# personne d'autre ne puisse le modifier.
+if [ -f "$DOSSIER/reglages-chrome/veilleur-chrome.sh" ]; then
+  chown 0:0 "$DOSSIER/reglages-chrome/veilleur-chrome.sh" 2>/dev/null
+  chmod 644 "$DOSSIER/reglages-chrome/veilleur-chrome.sh" 2>/dev/null
+fi
+
 # Le journal ne garde que les 2000 dernières lignes.
 if [ -f "$JOURNAL" ] && [ "$(wc -l < "$JOURNAL")" -gt 2000 ]; then
   tail -n 2000 "$JOURNAL" > "$JOURNAL.tmp" && mv "$JOURNAL.tmp" "$JOURNAL"

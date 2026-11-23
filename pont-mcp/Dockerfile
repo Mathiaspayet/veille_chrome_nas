@@ -14,6 +14,9 @@ COPY package.json package-lock.json ./
 # Version exacte de Playwright MCP, fixée dans package-lock.json.
 RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
+# Script de démarrage avec auto-réparation (voir demarrer-pont.sh).
+COPY --chmod=755 demarrer-pont.sh ./
+
 # Le pont tourne avec un utilisateur ordinaire, pas en « root ».
 USER node
 
@@ -24,8 +27,8 @@ USER node
 #  --no-webmcp : ne pas exposer à Claude des outils fournis par les pages web
 #    elles-mêmes (une page piégée pourrait en profiter) ;
 #  --output-dir : fichiers temporaires (captures, instantanés) dans /tmp.
-CMD ["node", "node_modules/@playwright/mcp/cli.js", \
-     "--cdp-endpoint", "http://127.0.0.1:9222", \
+ENTRYPOINT ["./demarrer-pont.sh"]
+CMD ["--cdp-endpoint", "http://127.0.0.1:9222", \
      "--port", "8931", "--host", "127.0.0.1", \
      "--ignore-roots", "--no-webmcp", \
      "--output-dir", "/tmp/pont-mcp"]

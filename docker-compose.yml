@@ -58,9 +58,12 @@ services:
       #    et met Chrome en français, à chaque lancement ;
       #  - politiques.json : rouvre la session précédente au démarrage
       #    (tu restes connecté) et interdit d'enregistrer mots de passe
-      #    et cartes bancaires dans ce Chrome.
+      #    et cartes bancaires dans ce Chrome ;
+      #  - veilleur-chrome.sh : relance Chrome tout seul s'il a été fermé
+      #    (sinon le pont MCP ne peut plus le piloter).
       - ./reglages-chrome/options-chrome.sh:/etc/chromium.d/zz-veille-chrome-nas:ro
       - ./reglages-chrome/politiques.json:/etc/chromium/policies/managed/veille-chrome-nas.json:ro
+      - ./reglages-chrome/veilleur-chrome.sh:/custom-services.d/veilleur-chrome:ro
     ports:
       # Seul le port 3001 (accès HTTPS) est ouvert, et seulement sur ton
       # réseau local. NE PAS le rediriger sur Internet depuis ta box.

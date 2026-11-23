@@ -179,8 +179,8 @@ plus bas.
 | Je veux… | Comment |
 |---|---|
 | Utiliser Chrome | `https://IP-DU-NAS:3001` depuis un PC de la maison |
-| Redémarrer Chrome | **Container Manager → Conteneur → `chrome-nas` → Action → Redémarrer** |
-| Rouvrir Chrome si j'ai fermé sa fenêtre | Clic droit sur le fond du bureau → **Chromium**, ou redémarre le conteneur |
+| Redémarrer Chrome | **Container Manager → Conteneur → `chrome-nas` → Action → Redémarrer**. Le pont et le portier se rebranchent tout seuls dans les 2 à 3 minutes. |
+| Rouvrir Chrome si j'ai fermé sa fenêtre | Rien à faire : le **veilleur** le relance tout seul en moins d'une minute (sa croix ✕ en haut à droite ferme Chrome en entier) |
 | Mettre à jour Chrome, le pont et le portier | Rien à faire : ton Watchtower (portée `gestion-locative`) vérifie toutes les 5 minutes et installe les nouvelles versions. Celles du pont et du portier sont fabriquées par GitHub à chaque modification du projet. |
 | Mettre à jour les fichiers du projet (réglages de Chrome, télécommande…) | Rarement utile : **Exécuter** la tâche « Mettre à jour le projet » |
 | Changer le mot de passe d'accès | Modifie `reglages.env`, puis **Exécuter** la tâche « Démarrer » |
@@ -390,6 +390,7 @@ Commence toujours par lire la fin de **`donnees/journal.txt`**.
 | `❌ Action inconnue « robot »` | Le robot a été retiré du projet (on passe par le pont MCP) : supprime la tâche « Chrome NAS – Test robot » du Planificateur. |
 | Claude : « Couldn't reach the MCP server » | L'adresse doit commencer par `https://` et finir par `/mcp`. Ouvre-la sans `/mcp` dans un navigateur : tu dois voir « Portier du pont MCP ». Sinon, vérifie la règle de proxy inversé (destination **HTTP**, `127.0.0.1`, `8930`). |
 | Page d'autorisation : « Trop d'essais ratés » | Le portier est verrouillé 15 minutes après 5 mots de passe faux. Attends, puis réessaie. |
+| Claude : `ECONNREFUSED 127.0.0.1:9222` | Chrome était fermé : le veilleur le relance en moins d'une minute, redemande à Claude. Si ça dure, regarde **Container Manager → `chrome-nas` → Journal** (lignes `veilleur-chrome`) ou redémarre `chrome-nas`. |
 | Claude : « pont_injoignable » | **Container Manager → Conteneur** : `pont-mcp` et `chrome-nas` doivent être en cours d'exécution. Sinon, **Exécuter** « Démarrer ». |
 | `❌ Impossible de télécharger « pont-mcp »` (ou portier) | Internet était peut-être coupé : relance « Démarrer » plus tard. Si ça persiste, vérifie que les images sont publiques (pont MCP, point 1). |
 | Le port 3001 est déjà utilisé | Change `PORT_CHROME` dans `reglages.env` (par exemple 3005), relance « Démarrer » et utilise ce numéro dans l'adresse. |
@@ -406,9 +407,11 @@ veille_chrome_nas/
 ├── docker-compose.yml        ← décrit les 3 conteneurs (chrome, pont-mcp, portier)
 ├── reglages-chrome/
 │   ├── options-chrome.sh     ← ouvre la « prise » du pont MCP + Chrome en français
-│   └── politiques.json       ← rouvre la session au démarrage, pas de mot de passe ni de CB enregistrés
+│   ├── politiques.json       ← rouvre la session au démarrage, pas de mot de passe ni de CB enregistrés
+│   └── veilleur-chrome.sh    ← relance Chrome tout seul s'il a été fermé
 ├── pont-mcp/
 │   ├── Dockerfile            ← recette du pont (Playwright MCP, version fixée)
+│   ├── demarrer-pont.sh      ← démarrage du pont, avec auto-réparation
 │   └── package.json …        ← version exacte de Playwright MCP
 ├── portier/
 │   ├── Dockerfile            ← recette du portier
