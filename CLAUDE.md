@@ -36,8 +36,8 @@
 - **Images fabriquées par GitHub** (.github/workflows/images.yml) : à
   chaque push sur `main` (et chaque lundi), tests du portier puis
   fabrication et publication de `ghcr.io/mathiaspayet/veille_chrome_nas-
-  {pont-mcp,portier,robot}:latest`. Ces 3 paquets GHCR doivent être
-  PUBLICS (réglage manuel sur GitHub, comme comptage-vehicules). Le NAS ne
+  {pont-mcp,portier,robot}:latest`. Ces 3 paquets GHCR sont PUBLICS
+  d'office (dépôt public ; vérifié le 23/11/2026 par un jeton anonyme). Le NAS ne
   fabrique plus rien : `demarrer` fait `pull` + `up`. Les scripts du robot
   sont DANS son image (plus de montage de robot/scripts) ; l'action
   `robot` fait un `pull` avant chaque lancement.

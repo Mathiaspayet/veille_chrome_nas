@@ -286,19 +286,19 @@ Claude ──https──► proxy inversé DSM ──► portier ──► pont 
   une mise à jour de Chrome, il les rebranche aussi, et Claude reste
   autorisé.
 
-### 1. Rendre publiques les images du projet (une seule fois)
+### 1. Les images du projet (rien à faire, normalement)
 
-GitHub fabrique trois images : le pont, le portier et le robot. Pour que le
-NAS puisse les télécharger sans mot de passe, elles doivent être
-**publiques**, comme pour comptage-vehicules. Elles ne contiennent que le
-code du projet : tes réglages et tes données restent sur le NAS.
+GitHub fabrique trois images : le pont, le portier et le robot. Comme le
+dépôt est public, elles sont **publiques d'office** : le NAS les télécharge
+sans mot de passe (vérifié à leur première publication). Elles ne
+contiennent que le code du projet : tes réglages et tes données restent sur
+le NAS.
 
-1. Sur <https://github.com/Mathiaspayet?tab=packages>, ouvre
-   **`veille_chrome_nas-pont-mcp`**.
-2. À droite : **Package settings** → tout en bas, **Danger Zone** →
-   **Change visibility** → **Public**, puis confirme en tapant le nom.
-3. Recommence pour **`veille_chrome_nas-portier`** et
-   **`veille_chrome_nas-robot`**.
+Si un jour le journal affiche `❌ Impossible de télécharger « pont-mcp »`
+alors qu'Internet fonctionne, vérifie leur visibilité sur
+<https://github.com/Mathiaspayet?tab=packages> : pour chaque image
+(`veille_chrome_nas-pont-mcp`, `-portier`, `-robot`), **Package settings** →
+**Danger Zone** → **Change visibility** → **Public**.
 
 ### 2. Installer la nouvelle version sur le NAS
 
@@ -415,7 +415,7 @@ Commence toujours par lire la fin de **`donnees/journal.txt`**.
 | Claude : « Couldn't reach the MCP server » | L'adresse doit commencer par `https://` et finir par `/mcp`. Ouvre-la sans `/mcp` dans un navigateur : tu dois voir « Portier du pont MCP ». Sinon, vérifie la règle de proxy inversé (destination **HTTP**, `127.0.0.1`, `8930`). |
 | Page d'autorisation : « Trop d'essais ratés » | Le portier est verrouillé 15 minutes après 5 mots de passe faux. Attends, puis réessaie. |
 | Claude : « pont_injoignable » | **Container Manager → Conteneur** : `pont-mcp` et `chrome-nas` doivent être en cours d'exécution. Sinon, **Exécuter** « Démarrer ». |
-| `❌ Impossible de télécharger « pont-mcp »` (ou portier, robot) | Première fois ? Rends les images publiques (pont MCP, point 1). Sinon, Internet était coupé : relance « Démarrer » plus tard. |
+| `❌ Impossible de télécharger « pont-mcp »` (ou portier, robot) | Internet était peut-être coupé : relance « Démarrer » plus tard. Si ça persiste, vérifie que les images sont publiques (pont MCP, point 1). |
 | Le port 3001 est déjà utilisé | Change `PORT_CHROME` dans `reglages.env` (par exemple 3005), relance « Démarrer » et utilise ce numéro dans l'adresse. |
 
 ---
