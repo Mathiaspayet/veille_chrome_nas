@@ -1,0 +1,5 @@
+{
+  "RestoreOnStartup": 1,
+  "PasswordManagerEnabled": false,
+  "AutofillCreditCardEnabled": false
+}
