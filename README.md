@@ -50,26 +50,47 @@ sur le NAS : **Container Manager**, le dossier partagé **`docker`** et
    **en cours d'exécution**. C'est lui qui mettra Chrome à jour tout seul,
    comme tes autres applications.
 
-### Étape 2 : télécharger le projet
-
-Sur la page GitHub du projet
-(<https://github.com/Mathiaspayet/veille_chrome_nas>), clique sur
-**Code → Download ZIP**. La branche `main`, proposée par défaut, contient la
-version validée. Garde le fichier `.zip` tel quel, sans le décompresser.
-
-### Étape 3 : déposer le projet sur le NAS
+### Étape 2 : créer le dossier du projet
 
 1. Dans **File Station**, ouvre le dossier **`docker`**.
-2. Clique sur **Charger**, puis choisis le fichier `.zip` téléchargé.
-3. Fais un clic droit sur le `.zip` → **Extraire** → **Extraire ici**.
-4. Un dossier `veille_chrome_nas-…` apparaît. Fais un clic droit dessus →
-   **Renommer**, puis tape exactement : **`veille_chrome_nas`**.
-5. Tu peux supprimer le `.zip`.
-6. **Vérifie l'emplacement** : clic droit sur `veille_chrome_nas` →
+2. **Créer → Créer un dossier**, nom : **`veille_chrome_nas`** (exactement).
+3. **Vérifie l'emplacement** : clic droit sur `veille_chrome_nas` →
    **Propriétés**. L'emplacement doit être **`/volume1/docker/veille_chrome_nas`**.
-   S'il est différent (par exemple `/volume2/...`), note-le et utilise-le
-   à la place de `/volume1/docker/veille_chrome_nas` dans les tâches
-   des étapes 5 et 8.
+   S'il est différent (par exemple `/volume2/...`), utilise-le à la place de
+   `/volume1/docker/veille_chrome_nas` dans toutes les tâches.
+
+### Étape 3 : créer la tâche « Mettre à jour le projet »
+
+Cette tâche télécharge les fichiers du projet depuis GitHub, sans ZIP à
+extraire. Tu la garderas : c'est ton bouton de mise à jour.
+
+1. **Panneau de configuration → Planificateur de tâches**.
+2. **Créer → Tâche planifiée → Script défini par l'utilisateur**.
+3. Onglet **Général** :
+   - Tâche : **`Chrome NAS – Mettre à jour le projet`**
+   - Utilisateur : **`root`** (Docker exige les droits d'administrateur)
+   - **Activé** : coché
+4. Onglet **Programmer** : **Exécuter à la date suivante**, avec la date du
+   jour, et **Ne pas répéter**. Cette tâche se lance à la main.
+5. Onglet **Paramètres de tâche**, dans la case **Script défini par
+   l'utilisateur**, colle exactement cette ligne (elle est longue, c'est
+   normal) :
+
+   ```bash
+   cd /volume1/docker/veille_chrome_nas && curl -fsSL https://raw.githubusercontent.com/Mathiaspayet/veille_chrome_nas/main/chrome-nas.sh -o chrome-nas.sh.nouveau && mv -f chrome-nas.sh.nouveau chrome-nas.sh && bash chrome-nas.sh mettre-a-jour
+   ```
+
+   Elle se place dans le dossier du projet, y télécharge la dernière
+   version de la « télécommande » `chrome-nas.sh`, puis la lance pour
+   télécharger le reste du projet, sans jamais toucher à tes réglages
+   (`reglages.env`) ni à tes données (`donnees/`).
+6. **OK**. DSM avertit que la tâche tourne en `root` : confirme (DSM peut
+   te demander ton mot de passe DSM).
+7. **Lance-la** : sélectionne la tâche, clique sur **Exécuter**, puis confirme.
+
+Le dossier `veille_chrome_nas` se remplit. À ce stade, `donnees/journal.txt`
+se termine par `❌ Le fichier reglages.env est introuvable` : **c'est
+normal**, on le crée à l'étape suivante.
 
 ### Étape 4 : écrire tes réglages
 
@@ -113,8 +134,8 @@ version validée. Garde le fichier `.zip` tel quel, sans le décompresser.
 7. **Lance-la tout de suite** : sélectionne la tâche, clique sur **Exécuter**,
    puis confirme.
 
-La première fois, la tâche télécharge Chrome (environ 1,5 Go) et prépare le robot.
-**Compte 5 à 10 minutes.**
+La première fois, la tâche télécharge Chrome et les images du projet
+(environ 2 Go). **Compte 5 à 10 minutes.**
 
 ### Étape 6 : vérifier que Chrome tourne
 
@@ -182,9 +203,9 @@ s'ouvrir sur `example.com`, puis se refermer. Ensuite :
 | Utiliser Chrome | `https://IP-DU-NAS:3001` depuis un PC de la maison |
 | Redémarrer Chrome | **Container Manager → Conteneur → `chrome-nas` → Action → Redémarrer** |
 | Rouvrir Chrome si j'ai fermé sa fenêtre | Clic droit sur le fond du bureau → **Chromium**, ou redémarre le conteneur |
-| Mettre à jour Chrome | Rien à faire : ton Watchtower (portée `gestion-locative`) vérifie toutes les 5 minutes et installe les nouvelles versions |
-| Mettre à jour le robot, le pont et le portier | Rarement utile : **Exécuter** la tâche « Démarrer » |
-| Installer la dernière version du projet | **Exécuter** la tâche « Mettre à jour le projet » (voir le pont MCP, point 1.6) |
+| Mettre à jour Chrome, le pont et le portier | Rien à faire : ton Watchtower (portée `gestion-locative`) vérifie toutes les 5 minutes et installe les nouvelles versions. Celles du pont et du portier sont fabriquées par GitHub à chaque modification du projet. |
+| Mettre à jour le robot | Rien à faire : il télécharge sa dernière version avant chaque lancement |
+| Mettre à jour les fichiers du projet (réglages de Chrome, télécommande…) | Rarement utile : **Exécuter** la tâche « Mettre à jour le projet » |
 | Changer le mot de passe d'accès | Modifie `reglages.env`, puis **Exécuter** la tâche « Démarrer » |
 | Arrêter Chrome et le pont (libérer la mémoire) | Crée une tâche avec `bash /volume1/docker/veille_chrome_nas/chrome-nas.sh arreter` |
 | Savoir ce qui s'est passé | Ouvre `donnees/journal.txt` avec l'Éditeur de texte |
@@ -260,37 +281,38 @@ Claude ──https──► proxy inversé DSM ──► portier ──► pont 
   famille. Pour autoriser Claude, il faut saisir l'identifiant et le mot de
   passe de `reglages.env`. Il se verrouille 15 minutes après 5 essais ratés
   et bloque l'outil dangereux du pont (exécution de code arbitraire).
-- Les deux portent les étiquettes Watchtower : après une mise à jour de
-  Chrome, Watchtower les rebranche tout seul, et Claude reste autorisé.
+- Leurs images sont **fabriquées par GitHub** à chaque modification du
+  projet. Ton Watchtower installe les nouvelles versions tout seul ; après
+  une mise à jour de Chrome, il les rebranche aussi, et Claude reste
+  autorisé.
 
-### 1. Mettre le projet à jour sur le NAS (une seule fois à la main)
+### 1. Rendre publiques les images du projet (une seule fois)
 
-1. Télécharge la dernière version : sur
-   <https://github.com/Mathiaspayet/veille_chrome_nas>, **Code → Download ZIP**.
-2. **File Station → docker** : **Charger** le `.zip`, puis clic droit →
-   **Extraire → Extraire ici**. Un dossier `veille_chrome_nas-main` apparaît.
-3. Ouvre `veille_chrome_nas-main`, sélectionne tout (**Ctrl+A**), puis clic
-   droit → **Copier vers…** → choisis `docker/veille_chrome_nas`. Quand DSM
-   signale que des fichiers existent déjà, choisis **Écraser**.
-   Ton `reglages.env` et ton dossier `donnees` ne sont pas dans le `.zip` :
-   ils ne sont pas touchés.
-4. Supprime le dossier `veille_chrome_nas-main` et le `.zip`.
-5. **Planificateur de tâches** : sélectionne « Chrome NAS – Démarrer »,
-   puis **Exécuter**. La première fois, le NAS fabrique le pont et le portier
-   (2 à 5 minutes). Le journal doit se terminer par
-   `✅ Pont MCP et portier démarrés…`.
-6. Pour les prochaines fois, crée une tâche « Chrome NAS – Mettre à jour le
-   projet » (utilisateur `root`, date du jour, « Ne pas répéter ») avec :
+GitHub fabrique trois images : le pont, le portier et le robot. Pour que le
+NAS puisse les télécharger sans mot de passe, elles doivent être
+**publiques**, comme pour comptage-vehicules. Elles ne contiennent que le
+code du projet : tes réglages et tes données restent sur le NAS.
 
-   ```bash
-   bash /volume1/docker/veille_chrome_nas/chrome-nas.sh mettre-a-jour
-   ```
+1. Sur <https://github.com/Mathiaspayet?tab=packages>, ouvre
+   **`veille_chrome_nas-pont-mcp`**.
+2. À droite : **Package settings** → tout en bas, **Danger Zone** →
+   **Change visibility** → **Public**, puis confirme en tapant le nom.
+3. Recommence pour **`veille_chrome_nas-portier`** et
+   **`veille_chrome_nas-robot`**.
 
-   Un clic sur **Exécuter** télécharge alors la dernière version depuis
-   GitHub, sans toucher à `reglages.env` ni à `donnees/`, puis redémarre
-   tout. Plus besoin de recopier les fichiers à la main.
+### 2. Installer la nouvelle version sur le NAS
 
-### 2. Créer l'adresse du pont (proxy inversé)
+**Exécute** la tâche « Chrome NAS – Mettre à jour le projet ». Si tu ne
+l'as pas encore, crée-la comme à l'étape 3 du mode opératoire, avec la
+ligne :
+
+```bash
+cd /volume1/docker/veille_chrome_nas && curl -fsSL https://raw.githubusercontent.com/Mathiaspayet/veille_chrome_nas/main/chrome-nas.sh -o chrome-nas.sh.nouveau && mv -f chrome-nas.sh.nouveau chrome-nas.sh && bash chrome-nas.sh mettre-a-jour
+```
+
+La fin du journal doit afficher `✅ Pont MCP et portier démarrés…`.
+
+### 3. Créer l'adresse du pont (proxy inversé)
 
 **Panneau de configuration → Portail de connexion → Avancé → Proxy inversé
 → Créer** :
@@ -315,7 +337,7 @@ Claude ──https──► proxy inversé DSM ──► portier ──► pont 
 **Vérification :** ouvre `https://mcp-chrome.bignasmathias.synology.me` dans
 ton navigateur. Tu dois voir « Portier du pont MCP – En service ».
 
-### 3. Ajouter le connecteur dans Claude
+### 4. Ajouter le connecteur dans Claude
 
 1. Sur claude.ai : **Paramètres → Connecteurs → Ajouter un connecteur
    personnalisé**, comme pour Menus famille.
@@ -326,7 +348,7 @@ ton navigateur. Tu dois voir « Portier du pont MCP – En service ».
    du NAS ? » s'ouvre : saisis l'identifiant et le mot de passe de
    `reglages.env`, puis clique sur **Autoriser**.
 
-### 4. Premier essai
+### 5. Premier essai
 
 Dans une discussion avec Claude, en activant le connecteur « Chrome du NAS » :
 
@@ -380,7 +402,7 @@ Commence toujours par lire la fin de **`donnees/journal.txt`**.
 
 | Message ou problème | Solution |
 |---|---|
-| Pas de fichier `journal.txt` | La tâche n'a pas trouvé le script : vérifie le chemin collé dans la tâche (étape 3, point 6) et que l'utilisateur est bien `root`. |
+| Pas de fichier `journal.txt` | La tâche n'a pas trouvé le dossier ou le script : vérifie le chemin collé dans la tâche (étape 2, point 3) et que l'utilisateur est bien `root`. |
 | `❌ Le fichier reglages.env est introuvable` | Renomme `reglages-exemple.env` en `reglages.env` (étape 4). |
 | `❌ Choisis un vrai mot de passe…` / `❌ … ne doit contenir que…` | Corrige `CHROME_MOT_DE_PASSE` dans `reglages.env`, puis relance la tâche. |
 | `❌ Docker est introuvable` | Vérifie que **Container Manager** est installé et démarré (Centre de paquets). |
@@ -393,7 +415,7 @@ Commence toujours par lire la fin de **`donnees/journal.txt`**.
 | Claude : « Couldn't reach the MCP server » | L'adresse doit commencer par `https://` et finir par `/mcp`. Ouvre-la sans `/mcp` dans un navigateur : tu dois voir « Portier du pont MCP ». Sinon, vérifie la règle de proxy inversé (destination **HTTP**, `127.0.0.1`, `8930`). |
 | Page d'autorisation : « Trop d'essais ratés » | Le portier est verrouillé 15 minutes après 5 mots de passe faux. Attends, puis réessaie. |
 | Claude : « pont_injoignable » | **Container Manager → Conteneur** : `pont-mcp` et `chrome-nas` doivent être en cours d'exécution. Sinon, **Exécuter** « Démarrer ». |
-| `❌ « pont-mcp » (ou « portier ») n'a pas pu être préparé` | Le NAS n'a pas pu télécharger ce dont il a besoin (Internet coupé ?). Relance « Démarrer » plus tard. |
+| `❌ Impossible de télécharger « pont-mcp »` (ou portier, robot) | Première fois ? Rends les images publiques (pont MCP, point 1). Sinon, Internet était coupé : relance « Démarrer » plus tard. |
 | Le port 3001 est déjà utilisé | Change `PORT_CHROME` dans `reglages.env` (par exemple 3005), relance « Démarrer » et utilise ce numéro dans l'adresse. |
 
 ---
@@ -402,6 +424,7 @@ Commence toujours par lire la fin de **`donnees/journal.txt`**.
 
 ```
 veille_chrome_nas/
+├── .github/workflows/images.yml ← recette de GitHub : tests, puis fabrication des 3 images
 ├── chrome-nas.sh             ← la « télécommande » appelée par le Planificateur de tâches
 ├── reglages-exemple.env      ← modèle de réglages, à renommer en reglages.env
 ├── docker-compose.yml        ← décrit les 4 conteneurs (chrome, robot, pont-mcp, portier)
@@ -411,7 +434,7 @@ veille_chrome_nas/
 ├── robot/
 │   ├── Dockerfile            ← recette de fabrication du robot (Python + Playwright)
 │   ├── requirements.txt      ← bibliothèques Python utilisées
-│   └── scripts/
+│   └── scripts/              ← intégrés à l'image du robot
 │       ├── outils.py         ← fonctions communes (se brancher sur Chrome, capture d'écran)
 │       └── test_connexion.py ← le script de test de l'étape 8
 ├── pont-mcp/
