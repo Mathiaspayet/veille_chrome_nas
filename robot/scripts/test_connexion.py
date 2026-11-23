@@ -10,10 +10,10 @@ Ce que fait ce script :
 Si tu regardes le Chrome du NAS depuis ton PC pendant ce temps,
 tu vois l'onglet apparaître puis disparaître.
 
-Lancement (depuis le dossier du projet, sur le NAS) :
-    docker compose run --rm robot
-Pour tester une autre page :
-    docker compose run --rm robot scripts/test_connexion.py https://www.wikipedia.org
+Lancement : tâche du Planificateur de tâches du Synology, avec la ligne
+    bash /volume1/docker/veille_chrome_nas/chrome-nas.sh robot test_connexion.py
+Pour tester une autre page, ajoute son adresse à la fin :
+    bash /volume1/docker/veille_chrome_nas/chrome-nas.sh robot test_connexion.py https://www.wikipedia.org
 """
 
 import sys

@@ -14,17 +14,24 @@
 #      (ouvrir une page, cliquer, remplir un panier...). Il ne démarre
 #      pas tout seul : on le lance à la demande (voir README).
 #
-#  Les réglages personnels (mot de passe...) sont dans le fichier .env,
-#  à créer à partir de .env.exemple. Ce fichier .env n'est jamais
+#  On ne lance pas ce fichier directement : c'est le script
+#  chrome-nas.sh (appelé par le Planificateur de tâches) qui s'en charge.
+#  Les réglages personnels (mot de passe...) sont dans reglages.env,
+#  à créer à partir de reglages-exemple.env. Ce fichier n'est jamais
 #  envoyé sur GitHub.
 # =====================================================================
+
+# Nom du projet : les conteneurs et images s'appellent toujours pareil,
+# quel que soit le nom du dossier.
+name: veille_chrome_nas
 
 services:
   chrome:
     image: lscr.io/linuxserver/chromium:latest
     container_name: chrome-nas
     environment:
-      # Identifiants de l'utilisateur du NAS qui « possède » les fichiers.
+      # Numéros de l'utilisateur du NAS qui « possède » les fichiers
+      # (trouvés automatiquement par chrome-nas.sh).
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=Europe/Paris
@@ -36,8 +43,8 @@ services:
       # Identifiant + mot de passe demandés quand tu ouvres le Chrome
       # depuis ton PC. Obligatoires : sans eux, n'importe qui sur ton
       # réseau pourrait utiliser tes comptes connectés.
-      - CUSTOM_USER=${CHROME_UTILISATEUR:?Crée le fichier .env (voir .env.exemple) et remplis CHROME_UTILISATEUR}
-      - PASSWORD=${CHROME_MOT_DE_PASSE:?Crée le fichier .env (voir .env.exemple) et remplis CHROME_MOT_DE_PASSE}
+      - CUSTOM_USER=${CHROME_UTILISATEUR:?Crée le fichier reglages.env (voir reglages-exemple.env) et remplis CHROME_UTILISATEUR}
+      - PASSWORD=${CHROME_MOT_DE_PASSE:?Crée le fichier reglages.env (voir reglages-exemple.env) et remplis CHROME_MOT_DE_PASSE}
     volumes:
       # Le profil Chrome (cookies, favoris, sessions) est enregistré ici,
       # sur le disque du NAS. Il survit aux redémarrages.
@@ -58,7 +65,7 @@ services:
     shm_size: "1gb"
     restart: unless-stopped
     # À décommenter (enlever les #) seulement si l'écran reste noir
-    # ou si Chrome plante au démarrage (vieux NAS Synology surtout) :
+    # ou si Chrome plante au démarrage :
     # security_opt:
     #   - seccomp:unconfined
 
@@ -82,6 +89,6 @@ services:
       # Les captures d'écran prises par le robot arrivent ici.
       - ./donnees/captures:/app/captures
     # « profil robot » : le robot ne démarre PAS avec le reste.
-    # On le lance à la demande avec : docker compose run --rm robot
+    # On le lance à la demande avec : chrome-nas.sh robot NOM_DU_SCRIPT
     profiles:
       - robot

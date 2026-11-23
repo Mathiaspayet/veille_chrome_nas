@@ -1,4 +1,4 @@
-# Réglages personnels (mot de passe) : ne jamais les envoyer sur GitHub.
+# Ancien nom des réglages personnels : ne jamais les envoyer sur GitHub.
 .env
 
 # Profil Chrome (cookies = accès à tes comptes) et captures d'écran.
@@ -7,3 +7,6 @@ donnees/
 # Fichiers temporaires de Python.
 __pycache__/
 *.pyc
+
+# Tes réglages personnels (version renommée de reglages-exemple.env).
+reglages.env

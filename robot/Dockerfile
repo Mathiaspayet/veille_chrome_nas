@@ -23,6 +23,6 @@ ENV CDP_URL=http://127.0.0.1:9222
 ENV PYTHONUNBUFFERED=1
 
 # Par défaut, le robot lance le script de test.
-# Pour un autre script : docker compose run --rm robot scripts/autre.py
+# Pour un autre script : chrome-nas.sh robot autre.py (voir README)
 ENTRYPOINT ["python"]
 CMD ["scripts/test_connexion.py"]

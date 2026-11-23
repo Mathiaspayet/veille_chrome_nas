@@ -54,7 +54,7 @@ def capture(page, nom):
 def _donner_au_proprietaire(*chemins):
     """Le robot travaille en « root » (super-utilisateur). Sans ce petit
     réglage, tu ne pourrais pas supprimer ses captures depuis le NAS :
-    on les attribue donc à ton utilisateur (PUID/PGID du fichier .env)."""
+    on les attribue donc à ton utilisateur (PUID/PGID, trouvés par chrome-nas.sh)."""
     puid, pgid = os.environ.get("PUID"), os.environ.get("PGID")
     if not (puid and pgid):
         return
