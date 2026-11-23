@@ -1,0 +1,87 @@
+# =====================================================================
+#  Chrome sur le NAS + robot qui le pilote
+# =====================================================================
+#
+#  Ce fichier décrit 2 « conteneurs » (des mini-ordinateurs isolés
+#  qui tournent sur le NAS) :
+#
+#   1. chrome : un navigateur Chromium allumé en permanence.
+#      Tu l'ouvres depuis ton PC dans un onglet de ton navigateur
+#      (https://IP-DU-NAS:3001) pour te connecter toi-même à tes sites.
+#      Tes connexions (cookies) sont gardées dans donnees/chrome.
+#
+#   2. robot : un petit programme Python qui pilote ce même Chrome
+#      (ouvrir une page, cliquer, remplir un panier...). Il ne démarre
+#      pas tout seul : on le lance à la demande (voir README).
+#
+#  Les réglages personnels (mot de passe...) sont dans le fichier .env,
+#  à créer à partir de .env.exemple. Ce fichier .env n'est jamais
+#  envoyé sur GitHub.
+# =====================================================================
+
+services:
+  chrome:
+    image: lscr.io/linuxserver/chromium:latest
+    container_name: chrome-nas
+    environment:
+      # Identifiants de l'utilisateur du NAS qui « possède » les fichiers.
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=Europe/Paris
+      # Langue du système et de Chrome : français.
+      - LC_ALL=fr_FR.UTF-8
+      # Accès web en IPv4 seulement. Sans ce réglage, la page d'accès ne
+      # démarre pas sur les NAS où l'IPv6 est désactivé.
+      - DISABLE_IPV6=true
+      # Identifiant + mot de passe demandés quand tu ouvres le Chrome
+      # depuis ton PC. Obligatoires : sans eux, n'importe qui sur ton
+      # réseau pourrait utiliser tes comptes connectés.
+      - CUSTOM_USER=${CHROME_UTILISATEUR:?Crée le fichier .env (voir .env.exemple) et remplis CHROME_UTILISATEUR}
+      - PASSWORD=${CHROME_MOT_DE_PASSE:?Crée le fichier .env (voir .env.exemple) et remplis CHROME_MOT_DE_PASSE}
+    volumes:
+      # Le profil Chrome (cookies, favoris, sessions) est enregistré ici,
+      # sur le disque du NAS. Il survit aux redémarrages.
+      - ./donnees/chrome:/config
+      # Nos réglages de Chrome (« :ro » = en lecture seule) :
+      #  - options-chrome.sh : ouvre la « prise » du robot (port 9222)
+      #    et met Chrome en français, à chaque lancement ;
+      #  - politiques.json : rouvre la session précédente au démarrage
+      #    (tu restes connecté) et interdit d'enregistrer mots de passe
+      #    et cartes bancaires dans ce Chrome.
+      - ./reglages-chrome/options-chrome.sh:/etc/chromium.d/zz-veille-chrome-nas:ro
+      - ./reglages-chrome/politiques.json:/etc/chromium/policies/managed/veille-chrome-nas.json:ro
+    ports:
+      # Seul le port 3001 (accès HTTPS) est ouvert, et seulement sur ton
+      # réseau local. NE PAS le rediriger sur Internet depuis ta box.
+      - "${PORT_CHROME:-3001}:3001"
+    # Mémoire partagée : sans ça, Chrome plante sur les pages lourdes.
+    shm_size: "1gb"
+    restart: unless-stopped
+    # À décommenter (enlever les #) seulement si l'écran reste noir
+    # ou si Chrome plante au démarrage (vieux NAS Synology surtout) :
+    # security_opt:
+    #   - seccomp:unconfined
+
+  robot:
+    build: ./robot
+    container_name: robot-nas
+    # Le robot partage le « réseau » du conteneur chrome : il voit sa
+    # prise 9222 comme si elle était chez lui (adresse 127.0.0.1).
+    network_mode: "service:chrome"
+    depends_on:
+      - chrome
+    environment:
+      - TZ=Europe/Paris
+      # Pour que les captures t'appartiennent (et pas à « root »).
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+    volumes:
+      # Les scripts sont lus directement depuis ce dossier : tu peux les
+      # modifier sans tout reconstruire.
+      - ./robot/scripts:/app/scripts
+      # Les captures d'écran prises par le robot arrivent ici.
+      - ./donnees/captures:/app/captures
+    # « profil robot » : le robot ne démarre PAS avec le reste.
+    # On le lance à la demande avec : docker compose run --rm robot
+    profiles:
+      - robot
