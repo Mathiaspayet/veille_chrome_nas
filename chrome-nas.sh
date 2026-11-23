@@ -8,15 +8,20 @@
 #    bash /volume1/docker/veille_chrome_nas/chrome-nas.sh demarrer
 #    bash /volume1/docker/veille_chrome_nas/chrome-nas.sh robot test_connexion.py
 #    bash /volume1/docker/veille_chrome_nas/chrome-nas.sh arreter
+#    bash /volume1/docker/veille_chrome_nas/chrome-nas.sh mettre-a-jour
 #
 #  Les actions :
-#    demarrer : installe (ou rafraîchit) Chrome, le démarre et prépare
-#               le robot. Sans danger : on peut la relancer.
-#               Ensuite, les mises à jour de Chrome sont faites par le
-#               Watchtower déjà présent sur le NAS (portée gestion-locative).
+#    demarrer : installe (ou rafraîchit) Chrome, le pont MCP et son
+#               portier, les démarre et prépare le robot. Sans danger :
+#               on peut la relancer. Ensuite, les mises à jour de Chrome
+#               sont faites par le Watchtower déjà présent sur le NAS
+#               (portée gestion-locative).
 #    robot NOM : lance le script NOM du dossier robot/scripts
 #               (Chrome doit être démarré).
-#    arreter  : arrête Chrome (pour libérer la mémoire du NAS).
+#    arreter  : arrête Chrome et le pont (pour libérer la mémoire du NAS).
+#    mettre-a-jour : télécharge la dernière version du projet sur GitHub
+#               (sans toucher à reglages.env ni à donnees/), puis
+#               enchaîne avec « demarrer ».
 #
 #  Tout ce qui se passe est noté dans donnees/journal.txt
 # =====================================================================
@@ -41,8 +46,9 @@ export PUID PGID
 # Le Docker de Synology refuse de démarrer un conteneur si un dossier
 # qu'on lui « prête » n'existe pas encore (« Bind mount failed ») :
 # on les crée donc à l'avance, et on te les attribue.
-mkdir -p "$DOSSIER/donnees/chrome" "$DOSSIER/donnees/captures"
-chown "$PUID:$PGID" "$DOSSIER/donnees" "$DOSSIER/donnees/chrome" "$DOSSIER/donnees/captures" 2>/dev/null
+mkdir -p "$DOSSIER/donnees/chrome" "$DOSSIER/donnees/captures" "$DOSSIER/donnees/portier"
+chown "$PUID:$PGID" "$DOSSIER/donnees" "$DOSSIER/donnees/chrome" "$DOSSIER/donnees/captures" \
+  "$DOSSIER/donnees/portier" 2>/dev/null
 JOURNAL="$DOSSIER/donnees/journal.txt"
 
 # Le journal ne garde que les 2000 dernières lignes.
@@ -114,49 +120,53 @@ id_image() { docker image inspect -f '{{.Id}}' "$1" 2>/dev/null; }
 
 demarrer() {
   verifier_reglages
-  local image_chrome="lscr.io/linuxserver/chromium:latest"
-  local image_robot="veille_chrome_nas-robot"
-  local ancien_chrome ancien_robot
-  ancien_chrome="$(id_image "$image_chrome")"
-  ancien_robot="$(id_image "$image_robot")"
+  # Les images utilisées : celle de Chrome (téléchargée), et celles que le
+  # NAS fabrique lui-même (robot, pont MCP, portier).
+  local -A images=(
+    [chrome]="lscr.io/linuxserver/chromium:latest"
+    [robot]="veille_chrome_nas-robot"
+    [pont-mcp]="veille_chrome_nas-pont-mcp"
+    [portier]="veille_chrome_nas-portier"
+  )
+  local -A anciennes
+  local nom
+  for nom in "${!images[@]}"; do anciennes[$nom]="$(id_image "${images[$nom]}")"; done
 
   journal "Téléchargement de la dernière version de Chrome (la 1re fois : environ 1,5 Go, patience)…"
   if ! compose pull --quiet chrome; then
     journal "⚠️ Téléchargement impossible (pas d'Internet ?). On garde la version déjà présente."
   fi
 
-  journal "Démarrage de Chrome…"
-  if ! compose up -d --remove-orphans chrome; then
-    journal "❌ Chrome n'a pas pu démarrer. Les messages ci-dessus donnent la raison."
+  journal "Préparation du robot, du pont MCP et du portier…"
+  # --quiet : pas de détails de fabrication dans le journal, sauf en cas
+  # d'erreur (l'étape qui a échoué et sa raison restent affichées).
+  if ! compose --profile robot build --quiet --pull robot pont-mcp portier; then
+    for nom in robot pont-mcp portier; do
+      if [ -z "$(id_image "${images[$nom]}")" ]; then
+        journal "❌ « $nom » n'a pas pu être préparé. Les messages ci-dessus donnent la raison."
+        exit 1
+      fi
+    done
+    journal "⚠️ Mise à jour impossible pour l'instant. On garde les versions déjà présentes."
+  fi
+
+  journal "Démarrage de Chrome, du pont MCP et du portier…"
+  if ! compose up -d --remove-orphans; then
+    journal "❌ Le démarrage a échoué. Les messages ci-dessus donnent la raison."
     exit 1
   fi
 
-  journal "Préparation du robot…"
-  # --quiet : pas de détails de fabrication dans le journal, sauf en cas
-  # d'erreur (l'étape qui a échoué et sa raison restent affichées).
-  if ! compose --profile robot build --quiet --pull robot; then
-    if [ -n "$(id_image "$image_robot")" ]; then
-      journal "⚠️ Mise à jour du robot impossible. On garde la version déjà présente."
-    else
-      journal "❌ Le robot n'a pas pu être préparé. Les messages ci-dessus donnent la raison."
-      exit 1
-    fi
-  fi
-
   # Supprime les anciennes versions remplacées, pour ne pas remplir le disque.
-  local nouveau
-  nouveau="$(id_image "$image_chrome")"
-  if [ -n "$ancien_chrome" ] && [ "$ancien_chrome" != "$nouveau" ]; then
-    docker image rm "$ancien_chrome" > /dev/null 2>&1 && journal "Ancienne version de Chrome supprimée."
-  fi
-  nouveau="$(id_image "$image_robot")"
-  if [ -n "$ancien_robot" ] && [ "$ancien_robot" != "$nouveau" ]; then
-    docker image rm "$ancien_robot" > /dev/null 2>&1 && journal "Ancienne version du robot supprimée."
-  fi
+  for nom in "${!images[@]}"; do
+    if [ -n "${anciennes[$nom]}" ] && [ "${anciennes[$nom]}" != "$(id_image "${images[$nom]}")" ]; then
+      docker image rm "${anciennes[$nom]}" > /dev/null 2>&1 && journal "Ancienne version de « $nom » supprimée."
+    fi
+  done
 
   local port
   port="$(sed -n 's/^PORT_CHROME=//p' "$REGLAGES_PROPRES" | tail -n 1)"
   journal "✅ Chrome tourne. Ouvre https://IP-DU-NAS:${port:-3001} depuis ton PC."
+  journal "✅ Pont MCP et portier démarrés (voir le guide pour les relier à Claude)."
 }
 
 robot() {
@@ -187,8 +197,50 @@ robot() {
 
 arreter() {
   verifier_reglages
-  journal "Arrêt de Chrome…"
-  compose down && journal "✅ Chrome est arrêté. Tes connexions restent enregistrées pour la prochaine fois."
+  journal "Arrêt de Chrome et du pont MCP…"
+  compose down && journal "✅ Chrome et le pont sont arrêtés. Tes connexions restent enregistrées pour la prochaine fois."
+}
+
+mettre_a_jour() {
+  # ADRESSE_PROJET permet de tester une autre branche (sinon : main).
+  local adresse="${ADRESSE_PROJET:-https://github.com/Mathiaspayet/veille_chrome_nas/archive/refs/heads/main.tar.gz}"
+  local tmp source
+  tmp="$(mktemp -d)"
+  journal "Téléchargement de la dernière version du projet depuis GitHub…"
+  if ! curl -fsSL --max-time 300 -o "$tmp/projet.tar.gz" "$adresse"; then
+    journal "❌ Téléchargement impossible (pas d'Internet, ou GitHub indisponible). Rien n'a été modifié."
+    rm -rf "$tmp"; exit 1
+  fi
+  mkdir "$tmp/extrait"
+  if ! tar -xzf "$tmp/projet.tar.gz" -C "$tmp/extrait"; then
+    journal "❌ Archive illisible. Rien n'a été modifié."
+    rm -rf "$tmp"; exit 1
+  fi
+  source="$(find "$tmp/extrait" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+  if [ ! -f "$source/docker-compose.yml" ] || [ ! -f "$source/chrome-nas.sh" ]; then
+    journal "❌ Archive incomplète. Rien n'a été modifié."
+    rm -rf "$tmp"; exit 1
+  fi
+
+  # Copie fichier par fichier. Jamais reglages.env ni donnees/ : tes
+  # réglages et tes données restent intacts. Chaque fichier est d'abord
+  # copié à côté, puis renommé : ce script peut ainsi se remplacer
+  # lui-même pendant qu'il tourne.
+  local fichier nb=0
+  while IFS= read -r -d '' fichier; do
+    fichier="${fichier#./}"
+    mkdir -p "$DOSSIER/$(dirname "$fichier")"
+    cp "$source/$fichier" "$DOSSIER/$fichier.nouveau" && mv -f "$DOSSIER/$fichier.nouveau" "$DOSSIER/$fichier"
+    chown "$PUID:$PGID" "$DOSSIER/$fichier" 2>/dev/null
+    nb=$((nb + 1))
+  done < <(cd "$source" && find . -type f ! -path './donnees/*' ! -name 'reglages.env' -print0)
+  rm -rf "$tmp"
+  journal "✅ Projet mis à jour ($nb fichiers). Démarrage de la nouvelle version…"
+
+  # On relance la NOUVELLE version du script pour la suite.
+  rendre_les_fichiers
+  trap - EXIT
+  exec bash "$DOSSIER/chrome-nas.sh" demarrer
 }
 
 # --- Aiguillage ---------------------------------------------------------
@@ -200,8 +252,9 @@ case "$ACTION" in
   demarrer) demarrer ;;
   robot)    robot "$@" ;;
   arreter)  arreter ;;
+  mettre-a-jour) mettre_a_jour ;;
   *)
-    journal "❌ Action inconnue « $ACTION ». Choix possibles : demarrer, robot NOM_DU_SCRIPT, arreter."
+    journal "❌ Action inconnue « $ACTION ». Choix possibles : demarrer, robot NOM_DU_SCRIPT, arreter, mettre-a-jour."
     exit 1
     ;;
 esac
