@@ -17,14 +17,17 @@
   `com.centurylinklabs.watchtower.scope=gestion-locative`. Les 3
   conteneurs (chrome, pont-mcp, portier) la portent. Ne pas ajouter de
   second Watchtower.
-- **Déploiement entièrement automatique** : la tâche DSM « Mettre à jour
-  le projet » tourne toutes les heures. `mettre-a-jour` compare le SHA du
+- **Déploiement** : les images (chrome, pont-mcp, portier) arrivent seules
+  par Watchtower. Le reste (docker-compose.yml, chrome-nas.sh,
+  reglages-chrome/) passe par la tâche DSM « Mettre à jour le projet », que
+  Mathias lance **À LA DEMANDE** (choix du 23/11/2026, pas d'exécution
+  horaire) : après chaque fusion qui touche ces fichiers, LUI DIRE
+  explicitement d'exécuter cette tâche. `mettre-a-jour` compare le SHA du
   dernier commit de `main` à `donnees/version.txt` : identique → sortie
   silencieuse (rien au journal) ; différent → fichiers + `demarrer`, qui
-  écrit version.txt seulement s'il réussit (VERSION_A_NOTER). Tout ce qui
-  est fusionné dans main arrive donc sur le NAS en ≤ 1 h (images : ≤ 10
-  min via Watchtower). Toute évolution de chrome-nas.sh doit préserver ce
-  mécanisme. Forcer une réinstallation : supprimer donnees/version.txt.
+  écrit version.txt seulement s'il réussit (VERSION_A_NOTER). La tâche peut
+  aussi être programmée toutes les heures (option documentée dans le
+  README). Forcer une réinstallation : supprimer donnees/version.txt.
 - Mathias publie ses applications par le proxy inversé de DSM
   (`*.bignasmathias.synology.me`). Pour Chrome : destination **HTTPS**
   localhost:3001, en-têtes **WebSocket**, et profil de contrôle d'accès
