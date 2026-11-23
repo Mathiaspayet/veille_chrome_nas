@@ -38,7 +38,11 @@ PUID="$(ls -nd "$DOSSIER" | awk '{print $3}')"
 PGID="$(ls -nd "$DOSSIER" | awk '{print $4}')"
 export PUID PGID
 
-mkdir -p "$DOSSIER/donnees"
+# Le Docker de Synology refuse de démarrer un conteneur si un dossier
+# qu'on lui « prête » n'existe pas encore (« Bind mount failed ») :
+# on les crée donc à l'avance, et on te les attribue.
+mkdir -p "$DOSSIER/donnees/chrome" "$DOSSIER/donnees/captures"
+chown "$PUID:$PGID" "$DOSSIER/donnees" "$DOSSIER/donnees/chrome" "$DOSSIER/donnees/captures" 2>/dev/null
 JOURNAL="$DOSSIER/donnees/journal.txt"
 
 # Le journal ne garde que les 2000 dernières lignes.

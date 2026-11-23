@@ -45,6 +45,10 @@
   la prise 9222 existe aussi quand Chrome est relancé depuis le menu du bureau.
 - `DISABLE_IPV6=true` est nécessaire sur les hôtes sans IPv6 : sinon, nginx
   ne démarre pas et la page d'accès (port 3001) ne répond pas.
+- Le Docker de Synology ne crée PAS les dossiers manquants d'un montage
+  (« Bind mount failed: ... does not exist ») : `chrome-nas.sh` crée
+  `donnees/chrome` et `donnees/captures` avant de lancer Docker. Tout
+  nouveau dossier monté doit être créé de la même façon.
 - Le robot a besoin de `libatomic1` (python:3.13-slim), sinon le pilote
   Playwright ne démarre pas.
 - Test de bout en bout : créer `reglages.env`, puis
