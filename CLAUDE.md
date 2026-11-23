@@ -33,8 +33,16 @@
   bloqué dans tools/call). Proxy inversé DSM : `mcp-chrome.…synology.me` →
   HTTP 127.0.0.1:8930, sans profil d'accès (Claude vient d'Internet).
   Tests : `pytest portier/test_portier.py`.
-- Pont et portier partagent le réseau de chrome : ils portent l'étiquette
-  de portée ET `com.centurylinklabs.watchtower.no-pull=true`. Vérifié avec
+- **Images fabriquées par GitHub** (.github/workflows/images.yml) : à
+  chaque push sur `main` (et chaque lundi), tests du portier puis
+  fabrication et publication de `ghcr.io/mathiaspayet/veille_chrome_nas-
+  {pont-mcp,portier,robot}:latest`. Ces 3 paquets GHCR doivent être
+  PUBLICS (réglage manuel sur GitHub, comme comptage-vehicules). Le NAS ne
+  fabrique plus rien : `demarrer` fait `pull` + `up`. Les scripts du robot
+  sont DANS son image (plus de montage de robot/scripts) ; l'action
+  `robot` fait un `pull` avant chaque lancement.
+- Pont et portier partagent le réseau de chrome et portent l'étiquette de
+  portée : Watchtower installe leurs nouvelles images. Vérifié avec
   containrrr/watchtower 1.7.1 : quand Chrome est mis à jour, Watchtower les
   arrête puis les recrée rebranchés sur le nouveau Chrome, et les jetons
   (SQLite dans donnees/portier) restent valables.
@@ -44,7 +52,10 @@
   constaté), remplace les fichiers (jamais reglages.env ni donnees/), puis
   relance `demarrer` avec la nouvelle version du script. Les fichiers
   supprimés du dépôt restent sur le NAS. Test d'une branche :
-  `BRANCHE_PROJET=nom-de-branche`.
+  `BRANCHE_PROJET=nom-de-branche`. La tâche DSM « Mettre à jour le
+  projet » télécharge d'abord chrome-nas.sh (raw.githubusercontent.com)
+  dans /tmp puis le lance avec `DOSSIER_PROJET=...` : elle marche aussi
+  sur un dossier vide (installation neuve, sans ZIP).
 - Mathias débute en code : toujours répondre **en français**, de façon
   **didactique** (expliquer les termes techniques simplement). Les commentaires
   du code et les messages affichés par les scripts sont en français.

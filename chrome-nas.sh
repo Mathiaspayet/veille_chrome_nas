@@ -11,17 +11,21 @@
 #    bash /volume1/docker/veille_chrome_nas/chrome-nas.sh mettre-a-jour
 #
 #  Les actions :
-#    demarrer : installe (ou rafraîchit) Chrome, le pont MCP et son
-#               portier, les démarre et prépare le robot. Sans danger :
-#               on peut la relancer. Ensuite, les mises à jour de Chrome
-#               sont faites par le Watchtower déjà présent sur le NAS
-#               (portée gestion-locative).
+#    demarrer : télécharge Chrome, le pont MCP, le portier et le robot
+#               (les trois derniers sont fabriqués par GitHub), puis
+#               démarre le tout. Sans danger : on peut la relancer.
+#               Ensuite, les mises à jour sont faites par le Watchtower
+#               déjà présent sur le NAS (portée gestion-locative).
 #    robot NOM : lance le script NOM du dossier robot/scripts
 #               (Chrome doit être démarré).
 #    arreter  : arrête Chrome et le pont (pour libérer la mémoire du NAS).
-#    mettre-a-jour : télécharge la dernière version du projet sur GitHub
-#               (sans toucher à reglages.env ni à donnees/), puis
-#               enchaîne avec « demarrer ».
+#    mettre-a-jour : télécharge la dernière version des fichiers du
+#               projet sur GitHub (sans toucher à reglages.env ni à
+#               donnees/), puis enchaîne avec « demarrer ».
+#
+#  La tâche « Mettre à jour le projet » utilise une ligne plus longue, qui
+#  télécharge d'abord la dernière version de ce script lui-même (voir
+#  README) : elle marche même sur une installation vide ou ancienne.
 #
 #  Tout ce qui se passe est noté dans donnees/journal.txt
 # =====================================================================
@@ -30,8 +34,13 @@ set -u
 
 # --- Préparatifs ------------------------------------------------------
 
-# Le dossier du projet = celui où se trouve ce script.
-DOSSIER="$(cd "$(dirname "$0")" && pwd)" || exit 1
+# Le dossier du projet = celui où se trouve ce script (ou celui donné
+# par DOSSIER_PROJET, quand le script est lancé depuis un autre endroit).
+DOSSIER="${DOSSIER_PROJET:-$(cd "$(dirname "$0")" && pwd)}"
+if [ ! -d "$DOSSIER" ]; then
+  echo "❌ Le dossier du projet $DOSSIER n'existe pas : crée-le d'abord dans File Station." >&2
+  exit 1
+fi
 cd "$DOSSIER" || exit 1
 
 # Sur Synology, Docker est rangé dans /usr/local/bin.
@@ -110,6 +119,15 @@ verifier_reglages() {
   fi
 }
 
+# Les images utilisées : celle de Chrome (linuxserver), et les trois
+# fabriquées par GitHub pour ce projet.
+declare -A IMAGES=(
+  [chrome]="lscr.io/linuxserver/chromium:latest"
+  [robot]="ghcr.io/mathiaspayet/veille_chrome_nas-robot:latest"
+  [pont-mcp]="ghcr.io/mathiaspayet/veille_chrome_nas-pont-mcp:latest"
+  [portier]="ghcr.io/mathiaspayet/veille_chrome_nas-portier:latest"
+)
+
 # Raccourci : docker compose avec nos réglages.
 compose() { executer "${DC[@]}" --env-file "$REGLAGES_PROPRES" "$@"; }
 
@@ -120,34 +138,22 @@ id_image() { docker image inspect -f '{{.Id}}' "$1" 2>/dev/null; }
 
 demarrer() {
   verifier_reglages
-  # Les images utilisées : celle de Chrome (téléchargée), et celles que le
-  # NAS fabrique lui-même (robot, pont MCP, portier).
-  local -A images=(
-    [chrome]="lscr.io/linuxserver/chromium:latest"
-    [robot]="veille_chrome_nas-robot"
-    [pont-mcp]="veille_chrome_nas-pont-mcp"
-    [portier]="veille_chrome_nas-portier"
-  )
   local -A anciennes
   local nom
-  for nom in "${!images[@]}"; do anciennes[$nom]="$(id_image "${images[$nom]}")"; done
+  for nom in "${!IMAGES[@]}"; do anciennes[$nom]="$(id_image "${IMAGES[$nom]}")"; done
 
-  journal "Téléchargement de la dernière version de Chrome (la 1re fois : environ 1,5 Go, patience)…"
-  if ! compose pull --quiet chrome; then
-    journal "⚠️ Téléchargement impossible (pas d'Internet ?). On garde la version déjà présente."
-  fi
-
-  journal "Préparation du robot, du pont MCP et du portier…"
-  # --quiet : pas de détails de fabrication dans le journal, sauf en cas
-  # d'erreur (l'étape qui a échoué et sa raison restent affichées).
-  if ! compose --profile robot build --quiet --pull robot pont-mcp portier; then
-    for nom in robot pont-mcp portier; do
-      if [ -z "$(id_image "${images[$nom]}")" ]; then
-        journal "❌ « $nom » n'a pas pu être préparé. Les messages ci-dessus donnent la raison."
+  journal "Téléchargement des dernières versions de Chrome, du pont MCP, du portier et du robot"
+  journal "(la 1re fois : environ 2 Go, patience)…"
+  if ! compose --profile robot pull --quiet; then
+    for nom in "${!IMAGES[@]}"; do
+      if [ -z "$(id_image "${IMAGES[$nom]}")" ]; then
+        journal "❌ Impossible de télécharger « $nom » (${IMAGES[$nom]})."
+        journal "   Pas d'Internet ? Ou, si c'est la première fois : les images du projet sont-elles"
+        journal "   bien « publiques » sur GitHub ? (voir le guide, section pont MCP)"
         exit 1
       fi
     done
-    journal "⚠️ Mise à jour impossible pour l'instant. On garde les versions déjà présentes."
+    journal "⚠️ Téléchargement impossible pour l'instant. On garde les versions déjà présentes."
   fi
 
   journal "Démarrage de Chrome, du pont MCP et du portier…"
@@ -157,8 +163,8 @@ demarrer() {
   fi
 
   # Supprime les anciennes versions remplacées, pour ne pas remplir le disque.
-  for nom in "${!images[@]}"; do
-    if [ -n "${anciennes[$nom]}" ] && [ "${anciennes[$nom]}" != "$(id_image "${images[$nom]}")" ]; then
+  for nom in "${!IMAGES[@]}"; do
+    if [ -n "${anciennes[$nom]}" ] && [ "${anciennes[$nom]}" != "$(id_image "${IMAGES[$nom]}")" ]; then
       docker image rm "${anciennes[$nom]}" > /dev/null 2>&1 && journal "Ancienne version de « $nom » supprimée."
     fi
   done
@@ -176,14 +182,22 @@ robot() {
     exit 1
   fi
   shift
-  if [ ! -f "robot/scripts/$nom" ]; then
-    journal "❌ Le script robot/scripts/$nom n'existe pas. Scripts disponibles :"
-    journal "   $(cd robot/scripts && ls -- *.py | grep -v '^outils.py$' | tr '\n' ' ')"
-    exit 1
-  fi
   verifier_reglages
   if [ "$(docker inspect -f '{{.State.Running}}' chrome-nas 2>/dev/null)" != "true" ]; then
     journal "❌ Chrome n'est pas démarré. Lance d'abord la tâche « Chrome NAS – Démarrer »."
+    exit 1
+  fi
+  # Dernière version du robot (ses scripts sont dans son image, fabriquée par GitHub).
+  if ! "${DC[@]}" --env-file "$REGLAGES_PROPRES" --profile robot pull --quiet robot > /dev/null 2>&1; then
+    if [ -z "$(id_image "${IMAGES[robot]}")" ]; then
+      journal "❌ Impossible de télécharger le robot (pas d'Internet ?)."
+      exit 1
+    fi
+    journal "⚠️ Mise à jour du robot impossible pour l'instant. On garde la version déjà présente."
+  fi
+  if ! docker run --rm --entrypoint test "${IMAGES[robot]}" -f "scripts/$nom"; then
+    journal "❌ Le script « $nom » n'existe pas. Scripts disponibles :"
+    journal "   $(docker run --rm --entrypoint ls "${IMAGES[robot]}" scripts | grep -v '^outils.py$' | grep '\.py$' | tr '\n' ' ')"
     exit 1
   fi
   journal "Lancement du robot : $nom $*"

@@ -87,12 +87,15 @@ services:
       # Chrome est mis à jour automatiquement, sans second Watchtower.
       - "com.centurylinklabs.watchtower.scope=gestion-locative"
 
-  # Le robot ne porte PAS l'étiquette Watchtower : son image est fabriquée
-  # sur le NAS (elle n'existe sur aucun registre à télécharger) et il ne
-  # tourne que le temps d'un script. Il se met à jour avec la tâche
-  # « Démarrer ».
+  # Les images du robot, du pont et du portier sont fabriquées par GitHub
+  # (voir .github/workflows/images.yml) à chaque modification du projet,
+  # puis publiées sur ghcr.io : le NAS n'a plus qu'à les télécharger.
+  #
+  # Le robot ne porte PAS l'étiquette Watchtower : il ne tourne que le
+  # temps d'un script, et chrome-nas.sh télécharge sa dernière version
+  # juste avant chaque lancement.
   robot:
-    build: ./robot
+    image: ghcr.io/mathiaspayet/veille_chrome_nas-robot:latest
     container_name: robot-nas
     # Le robot partage le « réseau » du conteneur chrome : il voit sa
     # prise 9222 comme si elle était chez lui (adresse 127.0.0.1).
@@ -105,9 +108,7 @@ services:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
     volumes:
-      # Les scripts sont lus directement depuis ce dossier : tu peux les
-      # modifier sans tout reconstruire.
-      - ./robot/scripts:/app/scripts
+      # Les scripts du robot sont DANS son image (mis à jour par GitHub).
       # Les captures d'écran prises par le robot arrivent ici.
       - ./donnees/captures:/app/captures
     # « profil robot » : le robot ne démarre PAS avec le reste.
@@ -116,13 +117,11 @@ services:
       - robot
 
   # Le pont et le portier partagent le réseau du conteneur chrome, comme
-  # le robot. Quand Watchtower recrée chrome (mise à jour), il doit donc
-  # les redémarrer aussi pour les rebrancher : c'est pour ça qu'ils portent
-  # l'étiquette de portée. « no-pull » lui dit de ne pas chercher à
-  # télécharger leur image : elle est fabriquée sur le NAS (tâche
-  # « Démarrer »).
+  # le robot. Ils portent l'étiquette de portée : Watchtower installe leurs
+  # nouvelles versions (publiées par GitHub), et quand il recrée chrome
+  # (mise à jour), il les redémarre aussi pour les rebrancher dessus.
   pont-mcp:
-    build: ./pont-mcp
+    image: ghcr.io/mathiaspayet/veille_chrome_nas-pont-mcp:latest
     container_name: pont-mcp
     network_mode: "service:chrome"
     depends_on:
@@ -130,10 +129,9 @@ services:
     restart: unless-stopped
     labels:
       - "com.centurylinklabs.watchtower.scope=gestion-locative"
-      - "com.centurylinklabs.watchtower.no-pull=true"
 
   portier:
-    build: ./portier
+    image: ghcr.io/mathiaspayet/veille_chrome_nas-portier:latest
     container_name: portier-mcp
     network_mode: "service:chrome"
     depends_on:
@@ -153,4 +151,3 @@ services:
       - ./donnees/portier:/donnees
     labels:
       - "com.centurylinklabs.watchtower.scope=gestion-locative"
-      - "com.centurylinklabs.watchtower.no-pull=true"
