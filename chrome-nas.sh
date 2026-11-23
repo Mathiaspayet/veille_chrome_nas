@@ -132,7 +132,9 @@ demarrer() {
   fi
 
   journal "Préparation du robot…"
-  if ! compose --profile robot build --pull robot; then
+  # --quiet : pas de détails de fabrication dans le journal, sauf en cas
+  # d'erreur (l'étape qui a échoué et sa raison restent affichées).
+  if ! compose --profile robot build --quiet --pull robot; then
     if [ -n "$(id_image "$image_robot")" ]; then
       journal "⚠️ Mise à jour du robot impossible. On garde la version déjà présente."
     else
