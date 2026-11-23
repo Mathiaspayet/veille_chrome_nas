@@ -22,7 +22,29 @@
   **réseau local uniquement** (un navigateur connecté à ses comptes ne doit
   pas être joignable depuis Internet ; accès extérieur = VPN).
 - Ports déjà pris sur le NAS par ces projets : 8000, 8010, 8020, 8080,
-  8081, 8095, 8100. Ce projet utilise 3001.
+  8081, 8095, 8100. Ce projet utilise 3001 (Chrome) et 8930 (portier,
+  publié sur 127.0.0.1 seulement).
+- **Pont MCP** (pour que Claude pilote Chrome via un connecteur claude.ai) :
+  conteneur `pont-mcp` (Playwright MCP, version fixée dans
+  pont-mcp/package-lock.json, écoute 127.0.0.1:8931, `--cdp-endpoint`) et
+  conteneur `portier` (portier/portier.py : OAuth 2.1 + DCR + PKCE copié de
+  menus-famille, mot de passe = celui de reglages.env, verrouillage 15 min
+  après 5 échecs, outil `browser_run_code_unsafe` retiré de tools/list et
+  bloqué dans tools/call). Proxy inversé DSM : `mcp-chrome.…synology.me` →
+  HTTP 127.0.0.1:8930, sans profil d'accès (Claude vient d'Internet).
+  Tests : `pytest portier/test_portier.py`.
+- Pont et portier partagent le réseau de chrome : ils portent l'étiquette
+  de portée ET `com.centurylinklabs.watchtower.no-pull=true`. Vérifié avec
+  containrrr/watchtower 1.7.1 : quand Chrome est mis à jour, Watchtower les
+  arrête puis les recrée rebranchés sur le nouveau Chrome, et les jetons
+  (SQLite dans donnees/portier) restent valables.
+- `chrome-nas.sh mettre-a-jour` demande à l'API GitHub le numéro (SHA) du
+  dernier commit de `main`, télécharge l'archive de CE numéro (l'archive
+  « par nom de branche » est mise en cache quelques minutes par GitHub :
+  constaté), remplace les fichiers (jamais reglages.env ni donnees/), puis
+  relance `demarrer` avec la nouvelle version du script. Les fichiers
+  supprimés du dépôt restent sur le NAS. Test d'une branche :
+  `BRANCHE_PROJET=nom-de-branche`.
 - Mathias débute en code : toujours répondre **en français**, de façon
   **didactique** (expliquer les termes techniques simplement). Les commentaires
   du code et les messages affichés par les scripts sont en français.

@@ -183,9 +183,10 @@ s'ouvrir sur `example.com`, puis se refermer. Ensuite :
 | Redémarrer Chrome | **Container Manager → Conteneur → `chrome-nas` → Action → Redémarrer** |
 | Rouvrir Chrome si j'ai fermé sa fenêtre | Clic droit sur le fond du bureau → **Chromium**, ou redémarre le conteneur |
 | Mettre à jour Chrome | Rien à faire : ton Watchtower (portée `gestion-locative`) vérifie toutes les 5 minutes et installe les nouvelles versions |
-| Mettre à jour le robot | Rarement utile : **Exécuter** la tâche « Démarrer » |
+| Mettre à jour le robot, le pont et le portier | Rarement utile : **Exécuter** la tâche « Démarrer » |
+| Installer la dernière version du projet | **Exécuter** la tâche « Mettre à jour le projet » (voir le pont MCP, point 1.6) |
 | Changer le mot de passe d'accès | Modifie `reglages.env`, puis **Exécuter** la tâche « Démarrer » |
-| Arrêter Chrome (libérer la mémoire) | Crée une tâche avec `bash /volume1/docker/veille_chrome_nas/chrome-nas.sh arreter` |
+| Arrêter Chrome et le pont (libérer la mémoire) | Crée une tâche avec `bash /volume1/docker/veille_chrome_nas/chrome-nas.sh arreter` |
 | Savoir ce qui s'est passé | Ouvre `donnees/journal.txt` avec l'Éditeur de texte |
 
 - Après un redémarrage, Chrome affiche parfois **« Restaurer les pages ? »** :
@@ -241,13 +242,123 @@ téléphone et ta maison.
 
 ---
 
+## Piloter Chrome depuis Claude : le pont MCP
+
+Grâce au **pont MCP**, Claude (dans une discussion, dans Cowork ou dans une
+tâche planifiée) peut piloter le Chrome du NAS : ouvrir des pages, les
+lire, cliquer, taper du texte. MCP est le langage des connecteurs de
+Claude, comme celui de ton appli Menus famille.
+
+```
+Claude ──https──► proxy inversé DSM ──► portier ──► pont MCP ──► Chrome du NAS
+                  (mcp-chrome.…)        (OAuth)     (Playwright)
+```
+
+- Le **pont** (Playwright MCP, de Microsoft) fournit les outils de pilotage.
+  Il n'a aucun mot de passe : il n'est joignable que par le portier.
+- Le **portier** est la porte d'entrée sécurisée, sur le modèle de Menus
+  famille. Pour autoriser Claude, il faut saisir l'identifiant et le mot de
+  passe de `reglages.env`. Il se verrouille 15 minutes après 5 essais ratés
+  et bloque l'outil dangereux du pont (exécution de code arbitraire).
+- Les deux portent les étiquettes Watchtower : après une mise à jour de
+  Chrome, Watchtower les rebranche tout seul, et Claude reste autorisé.
+
+### 1. Mettre le projet à jour sur le NAS (une seule fois à la main)
+
+1. Télécharge la dernière version : sur
+   <https://github.com/Mathiaspayet/veille_chrome_nas>, **Code → Download ZIP**.
+2. **File Station → docker** : **Charger** le `.zip`, puis clic droit →
+   **Extraire → Extraire ici**. Un dossier `veille_chrome_nas-main` apparaît.
+3. Ouvre `veille_chrome_nas-main`, sélectionne tout (**Ctrl+A**), puis clic
+   droit → **Copier vers…** → choisis `docker/veille_chrome_nas`. Quand DSM
+   signale que des fichiers existent déjà, choisis **Écraser**.
+   Ton `reglages.env` et ton dossier `donnees` ne sont pas dans le `.zip` :
+   ils ne sont pas touchés.
+4. Supprime le dossier `veille_chrome_nas-main` et le `.zip`.
+5. **Planificateur de tâches** : sélectionne « Chrome NAS – Démarrer »,
+   puis **Exécuter**. La première fois, le NAS fabrique le pont et le portier
+   (2 à 5 minutes). Le journal doit se terminer par
+   `✅ Pont MCP et portier démarrés…`.
+6. Pour les prochaines fois, crée une tâche « Chrome NAS – Mettre à jour le
+   projet » (utilisateur `root`, date du jour, « Ne pas répéter ») avec :
+
+   ```bash
+   bash /volume1/docker/veille_chrome_nas/chrome-nas.sh mettre-a-jour
+   ```
+
+   Un clic sur **Exécuter** télécharge alors la dernière version depuis
+   GitHub, sans toucher à `reglages.env` ni à `donnees/`, puis redémarre
+   tout. Plus besoin de recopier les fichiers à la main.
+
+### 2. Créer l'adresse du pont (proxy inversé)
+
+**Panneau de configuration → Portail de connexion → Avancé → Proxy inversé
+→ Créer** :
+
+| Réglage | Valeur |
+|---|---|
+| Nom du proxy inversé | `mcp-chrome` |
+| Source – Protocole | **HTTPS** |
+| Source – Nom d'hôte | `mcp-chrome.bignasmathias.synology.me` |
+| Source – Port | `443` |
+| Destination – Protocole | **HTTP** (attention : différent de la règle de Chrome) |
+| Destination – Nom d'hôte | **`127.0.0.1`** |
+| Destination – Port | **`8930`** |
+
+- **Pas** d'en-têtes WebSocket et **pas** de profil de contrôle d'accès :
+  Claude doit pouvoir joindre cette adresse depuis Internet. C'est le portier
+  qui protège.
+- Onglet **Paramètres avancés** : si tu y trouves les délais d'expiration
+  du proxy, mets celui de **lecture** à **300** secondes (certaines pages
+  sont longues à charger).
+
+**Vérification :** ouvre `https://mcp-chrome.bignasmathias.synology.me` dans
+ton navigateur. Tu dois voir « Portier du pont MCP – En service ».
+
+### 3. Ajouter le connecteur dans Claude
+
+1. Sur claude.ai : **Paramètres → Connecteurs → Ajouter un connecteur
+   personnalisé**, comme pour Menus famille.
+2. Nom : `Chrome du NAS`. Adresse :
+   **`https://mcp-chrome.bignasmathias.synology.me/mcp`** (avec `/mcp` à la
+   fin).
+3. Clique sur **Connecter**. La page « Autoriser Claude à piloter le Chrome
+   du NAS ? » s'ouvre : saisis l'identifiant et le mot de passe de
+   `reglages.env`, puis clique sur **Autoriser**.
+
+### 4. Premier essai
+
+Dans une discussion avec Claude, en activant le connecteur « Chrome du NAS » :
+
+> Avec le connecteur Chrome du NAS, ouvre example.com et dis-moi le titre de la page.
+
+Ouvre `https://chrome.bignasmathias.synology.me` à côté : tu vois Claude
+travailler en direct.
+
+### Sécurité du pont
+
+- Claude pourra faire **tout ce que tu peux faire dans ce Chrome**, y compris
+  sur les sites où tu es connecté. Garde la règle : **aucune carte bancaire
+  enregistrée** dans tes comptes, et c'est toi qui valides les commandes.
+- Les pages web peuvent contenir du texte écrit pour tromper une IA.
+  Surveille Claude quand il travaille sur des sites que tu ne connais pas.
+- Les sites qui refusent les robots (comme Leclerc Drive) refuseront aussi
+  Claude : on respecte leur choix.
+- **Retirer l'accès à Claude :** supprime le connecteur dans Claude. Pour
+  couper **tous** les accès d'un coup : lance la tâche d'arrêt, supprime le
+  fichier `donnees/portier/portier.sqlite3`, puis **Exécuter** « Démarrer ».
+
+---
+
 ## Sécurité : les règles à respecter
 
 - **N'ouvre jamais ce Chrome sur Internet** : pas de « redirection de port »
   du 3001 sur ta box, et pas de proxy inversé sans le profil « Réseau local
   uniquement » (voir l'option ci-dessus). Ce Chrome est connecté à tes
   comptes : il doit rester sur ton réseau local. Pour y accéder de
-  l'extérieur plus tard, on passera par un VPN.
+  l'extérieur plus tard, on passera par un VPN. (Le pont MCP, lui, est fait
+  pour être joignable depuis Internet par Claude : c'est son portier qui le
+  protège.)
 - Le dossier **`donnees/chrome`** contient tes connexions (cookies). Quiconque
   le récupère peut se faire passer pour toi sur ces sites : ne le partage
   pas. Il n'est jamais envoyé sur GitHub (voir `.gitignore`), tout comme
@@ -279,6 +390,10 @@ Commence toujours par lire la fin de **`donnees/journal.txt`**.
 | Écran noir, ou Chrome qui plante en boucle | Ouvre `docker-compose.yml` avec l'Éditeur de texte et enlève les `#` devant les 2 lignes `security_opt:` et `- seccomp:unconfined`, puis relance la tâche « Démarrer ». |
 | `❌ Chrome n'est pas démarré` (robot) | Lance la tâche « Démarrer ». |
 | `Impossible de joindre Chrome` (robot) | La fenêtre Chrome a peut-être été fermée : voir « Au quotidien ». |
+| Claude : « Couldn't reach the MCP server » | L'adresse doit commencer par `https://` et finir par `/mcp`. Ouvre-la sans `/mcp` dans un navigateur : tu dois voir « Portier du pont MCP ». Sinon, vérifie la règle de proxy inversé (destination **HTTP**, `127.0.0.1`, `8930`). |
+| Page d'autorisation : « Trop d'essais ratés » | Le portier est verrouillé 15 minutes après 5 mots de passe faux. Attends, puis réessaie. |
+| Claude : « pont_injoignable » | **Container Manager → Conteneur** : `pont-mcp` et `chrome-nas` doivent être en cours d'exécution. Sinon, **Exécuter** « Démarrer ». |
+| `❌ « pont-mcp » (ou « portier ») n'a pas pu être préparé` | Le NAS n'a pas pu télécharger ce dont il a besoin (Internet coupé ?). Relance « Démarrer » plus tard. |
 | Le port 3001 est déjà utilisé | Change `PORT_CHROME` dans `reglages.env` (par exemple 3005), relance « Démarrer » et utilise ce numéro dans l'adresse. |
 
 ---
@@ -289,7 +404,7 @@ Commence toujours par lire la fin de **`donnees/journal.txt`**.
 veille_chrome_nas/
 ├── chrome-nas.sh             ← la « télécommande » appelée par le Planificateur de tâches
 ├── reglages-exemple.env      ← modèle de réglages, à renommer en reglages.env
-├── docker-compose.yml        ← décrit les 2 conteneurs (chrome + robot)
+├── docker-compose.yml        ← décrit les 4 conteneurs (chrome, robot, pont-mcp, portier)
 ├── reglages-chrome/
 │   ├── options-chrome.sh     ← ouvre la « prise » du robot + Chrome en français
 │   └── politiques.json       ← rouvre la session au démarrage, pas de mot de passe ni de CB enregistrés
@@ -299,16 +414,27 @@ veille_chrome_nas/
 │   └── scripts/
 │       ├── outils.py         ← fonctions communes (se brancher sur Chrome, capture d'écran)
 │       └── test_connexion.py ← le script de test de l'étape 8
+├── pont-mcp/
+│   ├── Dockerfile            ← recette du pont (Playwright MCP, version fixée)
+│   └── package.json …        ← version exacte de Playwright MCP
+├── portier/
+│   ├── Dockerfile            ← recette du portier
+│   ├── portier.py            ← connexion OAuth, verrouillage, filtre des outils
+│   ├── test_portier.py       ← tests automatiques du portier
+│   └── requirements.txt      ← bibliothèques Python du portier
 └── donnees/                  ← créé au premier démarrage — privé
     ├── chrome/               ← ton profil Chrome (connexions)
     ├── captures/             ← captures d'écran du robot
+    ├── portier/              ← autorisations données à Claude (empreintes)
     └── journal.txt           ← tout ce que font les tâches
 ```
 
 ## Et ensuite ?
 
-1. Un premier vrai script : par exemple, **remplir le panier Leclerc Drive**
+1. Avec le pont MCP, demander à Claude des tâches dans le Chrome du NAS, sur
+   des sites qui acceptent l'automatisation.
+2. Un premier vrai script : par exemple, **remplir le panier Leclerc Drive**
    à partir d'une liste de courses.
-2. Le lancer **automatiquement** (par exemple chaque jeudi) avec une
+3. Le lancer **automatiquement** (par exemple chaque jeudi) avec une
    nouvelle tâche du Planificateur :
    `bash /volume1/docker/veille_chrome_nas/chrome-nas.sh robot NOM_DU_SCRIPT.py`

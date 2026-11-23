@@ -1,0 +1,8 @@
+{
+  "name": "pont-mcp-chrome-nas",
+  "private": true,
+  "description": "Playwright MCP (Microsoft), branché sur le Chrome du NAS",
+  "dependencies": {
+    "@playwright/mcp": "0.0.86"
+  }
+}
