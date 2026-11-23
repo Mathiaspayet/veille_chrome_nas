@@ -261,6 +261,10 @@ mettre_a_jour() {
     chown "$PUID:$PGID" "$DOSSIER/$fichier" 2>/dev/null
     nb=$((nb + 1))
   done < <(cd "$source" && find . -type f ! -path './donnees/*' ! -name 'reglages.env' -print0)
+  # Les sous-dossiers créés pour l'occasion t'appartiennent aussi.
+  while IFS= read -r -d '' fichier; do
+    chown "$PUID:$PGID" "$DOSSIER/${fichier#./}" 2>/dev/null
+  done < <(cd "$source" && find . -mindepth 1 -type d ! -path './donnees' ! -path './donnees/*' -print0)
   rm -rf "$tmp"
   journal "✅ Projet mis à jour ($nb fichiers, version ${sha:0:7}). Démarrage de la nouvelle version…"
 
