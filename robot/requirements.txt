@@ -1,2 +1,0 @@
-# Bibliothèques Python dont le robot a besoin.
-playwright==1.65.2

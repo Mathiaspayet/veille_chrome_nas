@@ -6,18 +6,15 @@
 #
 #  À écrire dans la case « Script défini par l'utilisateur » :
 #    bash /volume1/docker/veille_chrome_nas/chrome-nas.sh demarrer
-#    bash /volume1/docker/veille_chrome_nas/chrome-nas.sh robot test_connexion.py
 #    bash /volume1/docker/veille_chrome_nas/chrome-nas.sh arreter
 #    bash /volume1/docker/veille_chrome_nas/chrome-nas.sh mettre-a-jour
 #
 #  Les actions :
-#    demarrer : télécharge Chrome, le pont MCP, le portier et le robot
-#               (les trois derniers sont fabriqués par GitHub), puis
-#               démarre le tout. Sans danger : on peut la relancer.
-#               Ensuite, les mises à jour sont faites par le Watchtower
-#               déjà présent sur le NAS (portée gestion-locative).
-#    robot NOM : lance le script NOM du dossier robot/scripts
-#               (Chrome doit être démarré).
+#    demarrer : télécharge Chrome, le pont MCP et le portier (les deux
+#               derniers sont fabriqués par GitHub), puis démarre le
+#               tout. Sans danger : on peut la relancer. Ensuite, les
+#               mises à jour sont faites par le Watchtower déjà présent
+#               sur le NAS (portée gestion-locative).
 #    arreter  : arrête Chrome et le pont (pour libérer la mémoire du NAS).
 #    mettre-a-jour : télécharge la dernière version des fichiers du
 #               projet sur GitHub (sans toucher à reglages.env ni à
@@ -56,9 +53,8 @@ export PUID PGID
 # Le Docker de Synology refuse de démarrer un conteneur si un dossier
 # qu'on lui « prête » n'existe pas encore (« Bind mount failed ») :
 # on les crée donc à l'avance, et on te les attribue.
-mkdir -p "$DOSSIER/donnees/chrome" "$DOSSIER/donnees/captures" "$DOSSIER/donnees/portier"
-chown "$PUID:$PGID" "$DOSSIER/donnees" "$DOSSIER/donnees/chrome" "$DOSSIER/donnees/captures" \
-  "$DOSSIER/donnees/portier" 2>/dev/null
+mkdir -p "$DOSSIER/donnees/chrome" "$DOSSIER/donnees/portier"
+chown "$PUID:$PGID" "$DOSSIER/donnees" "$DOSSIER/donnees/chrome" "$DOSSIER/donnees/portier" 2>/dev/null
 JOURNAL="$DOSSIER/donnees/journal.txt"
 
 # Le journal ne garde que les 2000 dernières lignes.
@@ -75,7 +71,6 @@ executer() { "$@" 2>&1 | tee -a "$JOURNAL"; return "${PIPESTATUS[0]}"; }
 # Rend au propriétaire du dossier les fichiers créés par ce script.
 rendre_les_fichiers() {
   chown "$PUID:$PGID" "$DOSSIER/donnees" "$JOURNAL" 2>/dev/null
-  [ -d "$DOSSIER/donnees/captures" ] && chown -R "$PUID:$PGID" "$DOSSIER/donnees/captures" 2>/dev/null
   rm -f "${REGLAGES_PROPRES:-}"
 }
 trap rendre_les_fichiers EXIT
@@ -120,11 +115,10 @@ verifier_reglages() {
   fi
 }
 
-# Les images utilisées : celle de Chrome (linuxserver), et les trois
+# Les images utilisées : celle de Chrome (linuxserver), et les deux
 # fabriquées par GitHub pour ce projet.
 declare -A IMAGES=(
   [chrome]="lscr.io/linuxserver/chromium:latest"
-  [robot]="ghcr.io/mathiaspayet/veille_chrome_nas-robot:latest"
   [pont-mcp]="ghcr.io/mathiaspayet/veille_chrome_nas-pont-mcp:latest"
   [portier]="ghcr.io/mathiaspayet/veille_chrome_nas-portier:latest"
 )
@@ -143,9 +137,9 @@ demarrer() {
   local nom
   for nom in "${!IMAGES[@]}"; do anciennes[$nom]="$(id_image "${IMAGES[$nom]}")"; done
 
-  journal "Téléchargement des dernières versions de Chrome, du pont MCP, du portier et du robot"
+  journal "Téléchargement des dernières versions de Chrome, du pont MCP et du portier"
   journal "(la 1re fois : environ 2 Go, patience)…"
-  if ! compose --profile robot pull --quiet; then
+  if ! compose pull --quiet; then
     for nom in "${!IMAGES[@]}"; do
       if [ -z "$(id_image "${IMAGES[$nom]}")" ]; then
         journal "❌ Impossible de télécharger « $nom » (${IMAGES[$nom]})."
@@ -163,6 +157,17 @@ demarrer() {
     exit 1
   fi
 
+  # Ménage : le robot a été retiré du projet (on passe par le pont MCP).
+  # Son image et son ancien dossier de code ne servent plus.
+  local reste menage=""
+  for reste in ghcr.io/mathiaspayet/veille_chrome_nas-robot:latest veille_chrome_nas-robot; do
+    docker image rm "$reste" > /dev/null 2>&1 && menage=1
+  done
+  [ -n "$menage" ] && journal "Ménage : ancienne image du robot supprimée."
+  if [ -d "$DOSSIER/robot" ]; then
+    rm -rf "$DOSSIER/robot" && journal "Ménage : ancien dossier « robot » supprimé (tes captures restent dans donnees/captures)."
+  fi
+
   # Supprime les anciennes versions remplacées, pour ne pas remplir le disque.
   for nom in "${!IMAGES[@]}"; do
     if [ -n "${anciennes[$nom]}" ] && [ "${anciennes[$nom]}" != "$(id_image "${IMAGES[$nom]}")" ]; then
@@ -174,40 +179,6 @@ demarrer() {
   port="$(sed -n 's/^PORT_CHROME=//p' "$REGLAGES_PROPRES" | tail -n 1)"
   journal "✅ Chrome tourne. Ouvre https://IP-DU-NAS:${port:-3001} depuis ton PC."
   journal "✅ Pont MCP et portier démarrés (voir le guide pour les relier à Claude)."
-}
-
-robot() {
-  local nom="${1:-}"
-  if [ -z "$nom" ]; then
-    journal "❌ Indique le script à lancer, par exemple : chrome-nas.sh robot test_connexion.py"
-    exit 1
-  fi
-  shift
-  verifier_reglages
-  if [ "$(docker inspect -f '{{.State.Running}}' chrome-nas 2>/dev/null)" != "true" ]; then
-    journal "❌ Chrome n'est pas démarré. Lance d'abord la tâche « Chrome NAS – Démarrer »."
-    exit 1
-  fi
-  # Dernière version du robot (ses scripts sont dans son image, fabriquée par GitHub).
-  if ! "${DC[@]}" --env-file "$REGLAGES_PROPRES" --profile robot pull --quiet robot > /dev/null 2>&1; then
-    if [ -z "$(id_image "${IMAGES[robot]}")" ]; then
-      journal "❌ Impossible de télécharger le robot (pas d'Internet ?)."
-      exit 1
-    fi
-    journal "⚠️ Mise à jour du robot impossible pour l'instant. On garde la version déjà présente."
-  fi
-  if ! docker run --rm --entrypoint test "${IMAGES[robot]}" -f "scripts/$nom"; then
-    journal "❌ Le script « $nom » n'existe pas. Scripts disponibles :"
-    journal "   $(docker run --rm --entrypoint ls "${IMAGES[robot]}" scripts | grep -v '^outils.py$' | grep '\.py$' | tr '\n' ' ')"
-    exit 1
-  fi
-  journal "Lancement du robot : $nom $*"
-  if compose run --rm -T robot "scripts/$nom" "$@"; then
-    journal "✅ Robot terminé sans erreur."
-  else
-    journal "❌ Le robot s'est arrêté sur une erreur (voir les lignes ci-dessus)."
-    exit 1
-  fi
 }
 
 arreter() {
@@ -281,11 +252,10 @@ ACTION="${1:-}"
 journal "===== Tâche : ${ACTION:-(aucune)} $* ====="
 case "$ACTION" in
   demarrer) demarrer ;;
-  robot)    robot "$@" ;;
   arreter)  arreter ;;
   mettre-a-jour) mettre_a_jour ;;
   *)
-    journal "❌ Action inconnue « $ACTION ». Choix possibles : demarrer, robot NOM_DU_SCRIPT, arreter, mettre-a-jour."
+    journal "❌ Action inconnue « $ACTION ». Choix possibles : demarrer, arreter, mettre-a-jour."
     exit 1
     ;;
 esac

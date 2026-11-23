@@ -2,21 +2,21 @@
 
 ## Contexte
 - Projet de Mathias : un Chromium allumé en permanence sur son NAS (conteneur
-  `linuxserver/chromium`), piloté par des scripts Python/Playwright
-  (conteneur `robot`) via le protocole CDP (port 9222).
+  `linuxserver/chromium`), piloté par Claude via un connecteur MCP (pont
+  Playwright MCP + portier OAuth, voir plus bas) par le protocole CDP
+  (port 9222). Le « robot » (scripts Python/Playwright) a été retiré le
+  23/11/2026 à la demande de Mathias : tout passe par le pont MCP.
 - NAS : Synology **DS1522+** (AMD Ryzen R1600, x86-64, 2 cœurs, 8 Go),
   **DSM 7.4**. Mathias n'utilise **pas SSH** : toutes les commandes passent
   par le **Planificateur de tâches** (utilisateur root), qui appelle
-  `chrome-nas.sh` (actions : `demarrer`, `robot NOM.py`, `arreter`,
-  `mettre-a-jour`).
+  `chrome-nas.sh` (actions : `demarrer`, `arreter`, `mettre-a-jour`).
   Le projet est dans `/volume1/docker/veille_chrome_nas`.
 - Sur le même NAS tournent d'autres projets de Mathias (gestion-locative,
   immo, menus-famille, suivi-prix-essence). Un seul **Watchtower** (installé
   avec gestion-locative) met à jour tous les conteneurs portant l'étiquette
-  `com.centurylinklabs.watchtower.scope=gestion-locative`. Les conteneurs
-  chrome, pont-mcp et portier la portent ; le robot non (conteneur
-  éphémère, mis à jour avant chaque lancement). Ne pas ajouter de second Watchtower ni de tâche de mise à
-  jour planifiée.
+  `com.centurylinklabs.watchtower.scope=gestion-locative`. Les 3
+  conteneurs (chrome, pont-mcp, portier) la portent. Ne pas ajouter de
+  second Watchtower ni de tâche de mise à jour planifiée.
 - Mathias publie ses applications par le proxy inversé de DSM
   (`*.bignasmathias.synology.me`). Pour Chrome : destination **HTTPS**
   localhost:3001, en-têtes **WebSocket**, et profil de contrôle d'accès
@@ -37,11 +37,11 @@
 - **Images fabriquées par GitHub** (.github/workflows/images.yml) : à
   chaque push sur `main` (et chaque lundi), tests du portier puis
   fabrication et publication de `ghcr.io/mathiaspayet/veille_chrome_nas-
-  {pont-mcp,portier,robot}:latest`. Ces 3 paquets GHCR sont PUBLICS
-  d'office (dépôt public ; vérifié le 23/11/2026 par un jeton anonyme). Le NAS ne
-  fabrique plus rien : `demarrer` fait `pull` + `up`. Les scripts du robot
-  sont DANS son image (plus de montage de robot/scripts) ; l'action
-  `robot` fait un `pull` avant chaque lancement.
+  {pont-mcp,portier}:latest`. Ces paquets GHCR sont PUBLICS d'office
+  (dépôt public ; vérifié le 23/11/2026 par un jeton anonyme). Le NAS ne
+  fabrique plus rien : `demarrer` fait `pull` + `up`. Le paquet
+  `veille_chrome_nas-robot` (ancien) peut être supprimé sur GitHub ;
+  `demarrer` supprime son image et l'ancien dossier `robot/` du NAS.
 - Pont et portier partagent le réseau de chrome et portent l'étiquette de
   portée : Watchtower installe leurs nouvelles images. Vérifié avec
   containrrr/watchtower 1.7.1 : quand Chrome est mis à jour, Watchtower les
@@ -68,16 +68,13 @@
   réutilisent ses cookies. `reglages.env` et `donnees/` sont dans `.gitignore`.
 - Un script ne valide jamais un paiement ni une commande : il prépare, et
   l'humain valide.
-- Le port 9222 ne doit jamais être publié : le robot y accède en partageant
+- Le port 9222 ne doit jamais être publié : le pont y accède en partageant
   le réseau du conteneur chrome (`network_mode: "service:chrome"`).
-- Un script se branche avec `connecter_chrome()` (robot/scripts/outils.py),
-  travaille dans un nouvel onglet, le referme, puis appelle
-  `navigateur.close()`. Ce close() débranche le script sans fermer Chrome.
 - Tout passe par `chrome-nas.sh` : il lit `reglages.env` (copie nettoyée des
   fins de ligne Windows, passée avec `--env-file`), détecte PUID/PGID à partir
   du propriétaire du dossier et écrit dans `donnees/journal.txt`. Toute
   nouvelle fonction doit rester utilisable depuis le Planificateur de tâches
-  (sans terminal interactif, d'où `run -T`).
+  (sans terminal interactif).
 
 ## Pièges déjà rencontrés (et réglés)
 - Les options de Chrome passent par `/etc/chromium.d/` (fichier
@@ -87,12 +84,12 @@
   ne démarre pas et la page d'accès (port 3001) ne répond pas.
 - Le Docker de Synology ne crée PAS les dossiers manquants d'un montage
   (« Bind mount failed: ... does not exist ») : `chrome-nas.sh` crée
-  `donnees/chrome` et `donnees/captures` avant de lancer Docker. Tout
+  `donnees/chrome` et `donnees/portier` avant de lancer Docker. Tout
   nouveau dossier monté doit être créé de la même façon.
 - L'Éditeur de texte de DSM affiche mal les emojis récents (au-delà de
   U+FFFF, ex. 📸) dans `journal.txt`. Dans les messages des scripts,
   n'utiliser que ✅ ❌ ⚠️ (qui s'affichent bien) ou du texte simple.
-- Le robot a besoin de `libatomic1` (python:3.13-slim), sinon le pilote
-  Playwright ne démarre pas.
-- Test de bout en bout : créer `reglages.env`, puis
-  `bash chrome-nas.sh demarrer` et `bash chrome-nas.sh robot test_connexion.py`.
+- Test de bout en bout : créer `reglages.env`, puis `bash chrome-nas.sh
+  demarrer`, puis le parcours OAuth + appels MCP à travers le portier
+  (127.0.0.1:8930) : enregistrement, autorisation, jeton, initialize,
+  tools/list, browser_navigate.

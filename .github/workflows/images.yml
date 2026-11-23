@@ -1,12 +1,11 @@
 # ====================================================================
 #  GitHub Actions — tests, fabrication et publication des images
 #
-#  À chaque envoi sur `main` : les tests tournent, puis les 3 images
-#  fabriquées par le projet (pont-mcp, portier, robot) sont construites
-#  et publiées sur GitHub Container Registry (ghcr.io). Sur le NAS :
-#    - le Watchtower (portée gestion-locative) récupère le pont et le
-#      portier dans les minutes qui suivent ;
-#    - le robot est téléchargé avant chacun de ses lancements.
+#  À chaque envoi sur `main` : les tests tournent, puis les 2 images
+#  fabriquées par le projet (pont-mcp, portier) sont construites et
+#  publiées sur GitHub Container Registry (ghcr.io). Sur le NAS, le
+#  Watchtower (portée gestion-locative) les récupère dans les minutes qui
+#  suivent.
 #
 #  Chaque lundi, les images sont refabriquées pour profiter des
 #  correctifs de sécurité de Python et de Node (le portier est joignable
@@ -48,10 +47,8 @@ jobs:
         working-directory: portier
         run: python -m pytest -q test_portier.py
 
-      - name: Syntaxe des scripts
-        run: |
-          bash -n chrome-nas.sh
-          python -m py_compile robot/scripts/*.py
+      - name: Syntaxe du script du NAS
+        run: bash -n chrome-nas.sh
 
   images:
     needs: tests
@@ -61,7 +58,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        image: [pont-mcp, portier, robot]
+        image: [pont-mcp, portier]
 
     steps:
       - uses: actions/checkout@v7

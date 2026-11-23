@@ -1,8 +1,8 @@
 # =====================================================================
-#  Chrome sur le NAS + robot + pont MCP pour Claude
+#  Chrome sur le NAS + pont MCP pour Claude
 # =====================================================================
 #
-#  Ce fichier décrit 4 « conteneurs » (des mini-ordinateurs isolés
+#  Ce fichier décrit 3 « conteneurs » (des mini-ordinateurs isolés
 #  qui tournent sur le NAS) :
 #
 #   1. chrome : un navigateur Chromium allumé en permanence.
@@ -10,15 +10,11 @@
 #      (https://IP-DU-NAS:3001) pour te connecter toi-même à tes sites.
 #      Tes connexions (cookies) sont gardées dans donnees/chrome.
 #
-#   2. robot : un petit programme Python qui pilote ce même Chrome
-#      (ouvrir une page, cliquer, remplir un panier...). Il ne démarre
-#      pas tout seul : on le lance à la demande (voir README).
-#
-#   3. pont-mcp : Playwright MCP (de Microsoft), qui donne à Claude des
+#   2. pont-mcp : Playwright MCP (de Microsoft), qui donne à Claude des
 #      outils pour piloter ce même Chrome. Il n'a aucun mot de passe :
 #      il n'est joignable que par le portier.
 #
-#   4. portier : la porte d'entrée sécurisée du pont. Claude doit y être
+#   3. portier : la porte d'entrée sécurisée du pont. Claude doit y être
 #      autorisé (OAuth, avec l'identifiant et le mot de passe de
 #      reglages.env) ; les outils dangereux du pont y sont bloqués.
 #
@@ -58,7 +54,7 @@ services:
       # sur le disque du NAS. Il survit aux redémarrages.
       - ./donnees/chrome:/config
       # Nos réglages de Chrome (« :ro » = en lecture seule) :
-      #  - options-chrome.sh : ouvre la « prise » du robot (port 9222)
+      #  - options-chrome.sh : ouvre la « prise » du pont MCP (port 9222)
       #    et met Chrome en français, à chaque lancement ;
       #  - politiques.json : rouvre la session précédente au démarrage
       #    (tu restes connecté) et interdit d'enregistrer mots de passe
@@ -87,39 +83,15 @@ services:
       # Chrome est mis à jour automatiquement, sans second Watchtower.
       - "com.centurylinklabs.watchtower.scope=gestion-locative"
 
-  # Les images du robot, du pont et du portier sont fabriquées par GitHub
-  # (voir .github/workflows/images.yml) à chaque modification du projet,
-  # puis publiées sur ghcr.io : le NAS n'a plus qu'à les télécharger.
+  # Les images du pont et du portier sont fabriquées par GitHub (voir
+  # .github/workflows/images.yml) à chaque modification du projet, puis
+  # publiées sur ghcr.io : le NAS n'a plus qu'à les télécharger.
   #
-  # Le robot ne porte PAS l'étiquette Watchtower : il ne tourne que le
-  # temps d'un script, et chrome-nas.sh télécharge sa dernière version
-  # juste avant chaque lancement.
-  robot:
-    image: ghcr.io/mathiaspayet/veille_chrome_nas-robot:latest
-    container_name: robot-nas
-    # Le robot partage le « réseau » du conteneur chrome : il voit sa
-    # prise 9222 comme si elle était chez lui (adresse 127.0.0.1).
-    network_mode: "service:chrome"
-    depends_on:
-      - chrome
-    environment:
-      - TZ=Europe/Paris
-      # Pour que les captures t'appartiennent (et pas à « root »).
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-    volumes:
-      # Les scripts du robot sont DANS son image (mis à jour par GitHub).
-      # Les captures d'écran prises par le robot arrivent ici.
-      - ./donnees/captures:/app/captures
-    # « profil robot » : le robot ne démarre PAS avec le reste.
-    # On le lance à la demande avec : chrome-nas.sh robot NOM_DU_SCRIPT
-    profiles:
-      - robot
-
-  # Le pont et le portier partagent le réseau du conteneur chrome, comme
-  # le robot. Ils portent l'étiquette de portée : Watchtower installe leurs
-  # nouvelles versions (publiées par GitHub), et quand il recrée chrome
-  # (mise à jour), il les redémarre aussi pour les rebrancher dessus.
+  # Le pont et le portier partagent le « réseau » du conteneur chrome : le
+  # pont voit sa prise 9222 comme si elle était chez lui (127.0.0.1). Ils
+  # portent l'étiquette de portée : Watchtower installe leurs nouvelles
+  # versions, et quand il recrée chrome (mise à jour), il les redémarre
+  # aussi pour les rebrancher dessus.
   pont-mcp:
     image: ghcr.io/mathiaspayet/veille_chrome_nas-pont-mcp:latest
     container_name: pont-mcp
