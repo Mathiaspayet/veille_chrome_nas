@@ -183,7 +183,7 @@ plus bas.
 | Je veux… | Comment |
 |---|---|
 | Utiliser Chrome | `https://IP-DU-NAS:3001` depuis un PC de la maison |
-| Redémarrer Chrome | **Container Manager → Conteneur → `chrome-nas` → Action → Redémarrer**. Le pont et le portier se rebranchent tout seuls dans les 2 à 3 minutes. |
+| Redémarrer Chrome | **Container Manager → Conteneur → `chrome-nas` → Action → Redémarrer**. Sans conséquence pour le pont et le portier : Claude retrouve Chrome dès qu'il est prêt. |
 | Rouvrir Chrome si j'ai fermé sa fenêtre | Rien à faire : le **veilleur** le relance tout seul en moins d'une minute (sa croix ✕ en haut à droite ferme Chrome en entier) |
 | Mettre à jour Chrome, le pont et le portier | Rien à faire : ton Watchtower (portée `gestion-locative`) vérifie toutes les 5 minutes et installe les nouvelles versions. Celles du pont et du portier sont fabriquées par GitHub à chaque modification du projet. |
 | Mettre à jour les fichiers du projet (réglages de Chrome, télécommande…) | **Exécuter** la tâche « Mettre à jour le projet » quand Claude te le signale (sans risque si rien n'a changé) |
@@ -415,10 +415,12 @@ veille_chrome_nas/
 ├── reglages-chrome/
 │   ├── options-chrome.sh     ← ouvre la « prise » du pont MCP + Chrome en français
 │   ├── politiques.json       ← rouvre la session au démarrage, pas de mot de passe ni de CB enregistrés
-│   └── veilleur-chrome.sh    ← relance Chrome tout seul s'il a été fermé
+│   ├── veilleur-chrome.sh    ← relance Chrome tout seul s'il a été fermé
+│   └── relais-cdp.sh         ← rend la prise de pilotage accessible au pont (réseau du projet seulement)
 ├── pont-mcp/
 │   ├── Dockerfile            ← recette du pont (Playwright MCP, version fixée)
-│   ├── demarrer-pont.sh      ← démarrage du pont, avec auto-réparation
+│   ├── demarrer-pont.sh      ← démarrage du pont
+│   ├── relais-cdp.js         ← relais vers la prise de pilotage de Chrome
 │   └── package.json …        ← version exacte de Playwright MCP
 ├── portier/
 │   ├── Dockerfile            ← recette du portier

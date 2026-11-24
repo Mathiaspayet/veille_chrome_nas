@@ -38,7 +38,9 @@
   publié sur 127.0.0.1 seulement).
 - **Pont MCP** (pour que Claude pilote Chrome via un connecteur claude.ai) :
   conteneur `pont-mcp` (Playwright MCP, version fixée dans
-  pont-mcp/package-lock.json, écoute 127.0.0.1:8931, `--cdp-endpoint`) et
+  pont-mcp/package-lock.json, écoute 0.0.0.0:8931 sur le réseau du projet,
+  `--allowed-hosts` AVEC le port : `pont-mcp:8931,…` — le pont compare
+  l'en-tête Host complet, sinon 403) et
   conteneur `portier` (portier/portier.py : OAuth 2.1 + DCR + PKCE copié de
   menus-famille, mot de passe = celui de reglages.env, verrouillage 15 min
   après 5 échecs, outil `browser_run_code_unsafe` retiré de tools/list et
@@ -53,11 +55,15 @@
   fabrique plus rien : `demarrer` fait `pull` + `up`. Le paquet
   `veille_chrome_nas-robot` (ancien) peut être supprimé sur GitHub ;
   `demarrer` supprime son image et l'ancien dossier `robot/` du NAS.
-- Pont et portier partagent le réseau de chrome et portent l'étiquette de
-  portée : Watchtower installe leurs nouvelles images. Vérifié avec
-  containrrr/watchtower 1.7.1 : quand Chrome est mis à jour, Watchtower les
-  arrête puis les recrée rebranchés sur le nouveau Chrome, et les jetons
-  (SQLite dans donnees/portier) restent valables.
+- **Trois conteneurs indépendants** (depuis le 24/11/2026), sur le réseau
+  Docker du projet : chrome expose sa prise 9222 via le service
+  personnalisé `relais-cdp` (0.0.0.0:9223, jamais publié) ; le pont la
+  réouvre chez lui sur 127.0.0.1:9222 (pont-mcp/relais-cdp.js, résolution
+  de `chrome` à CHAQUE connexion) pour que Chrome voie un hôte local ; le
+  portier parle au pont via `PONT_MCP_URL=http://pont-mcp:8931/mcp` et
+  publie lui-même 127.0.0.1:8930. Les 3 portent l'étiquette de portée :
+  Watchtower installe leurs images indépendamment (jetons conservés dans
+  donnees/portier).
 - `chrome-nas.sh mettre-a-jour` demande à l'API GitHub le numéro (SHA) du
   dernier commit de `main`, télécharge l'archive de CE numéro (l'archive
   « par nom de branche » est mise en cache quelques minutes par GitHub :
@@ -79,8 +85,8 @@
   réutilisent ses cookies. `reglages.env` et `donnees/` sont dans `.gitignore`.
 - Un script ne valide jamais un paiement ni une commande : il prépare, et
   l'humain valide.
-- Le port 9222 ne doit jamais être publié : le pont y accède en partageant
-  le réseau du conteneur chrome (`network_mode: "service:chrome"`).
+- Les ports 9222/9223 ne doivent jamais être publiés : le pont y accède
+  par le réseau Docker du projet (relais).
 - Tout passe par `chrome-nas.sh` : il lit `reglages.env` (copie nettoyée des
   fins de ligne Windows, passée avec `--env-file`), détecte PUID/PGID à partir
   du propriétaire du dossier et écrit dans `donnees/journal.txt`. Toute
@@ -109,13 +115,18 @@
   à ses fenêtres (`wayland-0`, DISPLAY=:0) : le veilleur mémorise
   l'environnement du Chrome en marche et le réutilise (secours : autre
   prise wayland-N que celle de labwc).
-- **Réseau partagé** : si chrome-nas est redémarré SEUL (pas recréé), pont
-  et portier restent dans l'ancien espace réseau (ils tournent mais sont
-  injoignables). Auto-réparation : s'ils ne voient plus 127.0.0.1:9222
-  pendant 2 min, ils s'arrêtent (portier.surveiller_le_reseau,
-  pont-mcp/demarrer-pont.sh) et Docker les relance rebranchés (vérifié :
-  127 s). Les 2 min laissent au veilleur le temps de relancer un Chrome
-  fermé (15 s) sans redémarrage inutile.
+- **Ne plus partager le réseau de chrome** (`network_mode: service:chrome`,
+  abandonné le 24/11/2026). Le Docker de DSM (24.x) relance au boot tous
+  les conteneurs EN PARALLÈLE et n'attend pas celui dont on partage le
+  réseau : pont et portier échouaient (« cannot join network namespace of
+  a non running container ») et Docker ne retente pas. Redémarrer chrome
+  seul les laissait aussi dans l'ancien réseau. Avec les relais : pont et
+  portier démarrent avant Chrome sans problème (pilotage 5 s après Chrome),
+  chrome redémarré seul ou recréé → rétabli en 4-5 s, sans toucher au pont.
+- Transition (images nouvelles + ancien plan network_mode) : demarrer-pont.sh
+  attend que Chrome soit joignable, soit directement sur 127.0.0.1:9222
+  (ancien plan → pas de relais, pour ne pas voler le port de Chrome), soit
+  via chrome:9223 (nouveau plan → relais).
 - Test de bout en bout : créer `reglages.env`, puis `bash chrome-nas.sh
   demarrer`, puis le parcours OAuth + appels MCP à travers le portier
   (127.0.0.1:8930) : enregistrement, autorisation, jeton, initialize,
