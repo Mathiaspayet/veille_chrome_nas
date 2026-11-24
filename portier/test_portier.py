@@ -265,19 +265,3 @@ def test_pont_injoignable(tmp_path):
         r = appel(c, jetons["access_token"], {"jsonrpc": "2.0", "id": 1, "method": "ping"})
         assert r.status_code == 502 and r.json()["error"] == "pont_injoignable"
 
-
-# --------------------------------------------------------------------------- auto-réparation
-
-def test_le_portier_s_arrete_s_il_ne_voit_plus_chrome(monkeypatch):
-    """Sans Chrome joignable pendant le délai, le portier s'arrête (et
-    Docker le relance, rebranché sur le bon réseau)."""
-    class Arret(Exception):
-        pass
-
-    def faux_exit(code):
-        raise Arret(code)
-
-    monkeypatch.setattr(portier.os, "_exit", faux_exit)
-    with pytest.raises(Arret):
-        # Port 9 : personne n'y écoute.
-        portier.surveiller_le_reseau(port_chrome=9, delai=0.2, intervalle=0.05)

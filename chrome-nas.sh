@@ -62,13 +62,15 @@ JOURNAL="$DOSSIER/donnees/journal.txt"
 # Numéro de la version du projet installée (écrit après une mise à jour réussie).
 VERSION_INSTALLEE="$DOSSIER/donnees/version.txt"
 
-# Le veilleur de Chrome est un « service personnalisé » de l'image
-# linuxserver : par sécurité, elle exige qu'il appartienne à root et que
-# personne d'autre ne puisse le modifier.
-if [ -f "$DOSSIER/reglages-chrome/veilleur-chrome.sh" ]; then
-  chown 0:0 "$DOSSIER/reglages-chrome/veilleur-chrome.sh" 2>/dev/null
-  chmod 644 "$DOSSIER/reglages-chrome/veilleur-chrome.sh" 2>/dev/null
-fi
+# Le veilleur et le relais de Chrome sont des « services personnalisés »
+# de l'image linuxserver : par sécurité, elle exige qu'ils appartiennent à
+# root et que personne d'autre ne puisse les modifier.
+for service in veilleur-chrome.sh relais-cdp.sh; do
+  if [ -f "$DOSSIER/reglages-chrome/$service" ]; then
+    chown 0:0 "$DOSSIER/reglages-chrome/$service" 2>/dev/null
+    chmod 644 "$DOSSIER/reglages-chrome/$service" 2>/dev/null
+  fi
+done
 
 # Le journal ne garde que les 2000 dernières lignes.
 if [ -f "$JOURNAL" ] && [ "$(wc -l < "$JOURNAL")" -gt 2000 ]; then

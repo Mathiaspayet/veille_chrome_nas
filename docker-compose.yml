@@ -60,18 +60,17 @@ services:
       #    (tu restes connecté) et interdit d'enregistrer mots de passe
       #    et cartes bancaires dans ce Chrome ;
       #  - veilleur-chrome.sh : relance Chrome tout seul s'il a été fermé
-      #    (sinon le pont MCP ne peut plus le piloter).
+      #    (sinon le pont MCP ne peut plus le piloter) ;
+      #  - relais-cdp.sh : rend la prise de pilotage accessible au pont MCP
+      #    (port 9223, sur le réseau du projet uniquement, jamais publié).
       - ./reglages-chrome/options-chrome.sh:/etc/chromium.d/zz-veille-chrome-nas:ro
       - ./reglages-chrome/politiques.json:/etc/chromium/policies/managed/veille-chrome-nas.json:ro
       - ./reglages-chrome/veilleur-chrome.sh:/custom-services.d/veilleur-chrome:ro
+      - ./reglages-chrome/relais-cdp.sh:/custom-services.d/relais-cdp:ro
     ports:
       # Seul le port 3001 (accès HTTPS) est ouvert, et seulement sur ton
       # réseau local. NE PAS le rediriger sur Internet depuis ta box.
       - "${PORT_CHROME:-3001}:3001"
-      # Le portier du pont MCP (il partage le réseau de ce conteneur, d'où
-      # sa présence ici). Ouvert sur 127.0.0.1 seulement : seul le proxy
-      # inversé de DSM, sur le NAS lui-même, peut le joindre.
-      - "127.0.0.1:${PORT_PONT_MCP:-8930}:8930"
     # Mémoire partagée : sans ça, Chrome plante sur les pages lourdes.
     shm_size: "1gb"
     restart: unless-stopped
@@ -90,15 +89,15 @@ services:
   # .github/workflows/images.yml) à chaque modification du projet, puis
   # publiées sur ghcr.io : le NAS n'a plus qu'à les télécharger.
   #
-  # Le pont et le portier partagent le « réseau » du conteneur chrome : le
-  # pont voit sa prise 9222 comme si elle était chez lui (127.0.0.1). Ils
-  # portent l'étiquette de portée : Watchtower installe leurs nouvelles
-  # versions, et quand il recrée chrome (mise à jour), il les redémarre
-  # aussi pour les rebrancher dessus.
+  # Les 3 conteneurs sont indépendants : ils se parlent par le réseau
+  # Docker du projet (chrome:9223 pour le pont, pont-mcp:8931 pour le
+  # portier). Chacun démarre seul, dans n'importe quel ordre : redémarrage
+  # du NAS, de Chrome seul ou mise à jour par Watchtower sans conséquence.
+  # Ils portent l'étiquette de portée : Watchtower installe leurs
+  # nouvelles versions.
   pont-mcp:
     image: ghcr.io/mathiaspayet/veille_chrome_nas-pont-mcp:latest
     container_name: pont-mcp
-    network_mode: "service:chrome"
     depends_on:
       - chrome
     restart: unless-stopped
@@ -108,14 +107,19 @@ services:
   portier:
     image: ghcr.io/mathiaspayet/veille_chrome_nas-portier:latest
     container_name: portier-mcp
-    network_mode: "service:chrome"
     depends_on:
       - pont-mcp
     restart: unless-stopped
+    ports:
+      # Ouvert sur 127.0.0.1 seulement : seul le proxy inversé de DSM, sur
+      # le NAS lui-même, peut le joindre (adresse mcp-chrome.…).
+      - "127.0.0.1:${PORT_PONT_MCP:-8930}:8930"
     # Tourne avec ton utilisateur du NAS (pas en « root »).
     user: "${PUID:-1000}:${PGID:-1000}"
     environment:
       - TZ=Europe/Paris
+      # Où joindre le pont, sur le réseau du projet.
+      - PONT_MCP_URL=http://pont-mcp:8931/mcp
       # Les mêmes identifiant et mot de passe que pour ouvrir Chrome :
       # ce sont eux qu'il faut saisir pour autoriser Claude.
       - CHROME_UTILISATEUR=${CHROME_UTILISATEUR:?Crée le fichier reglages.env (voir reglages-exemple.env) et remplis CHROME_UTILISATEUR}
